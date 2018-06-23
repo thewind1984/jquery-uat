@@ -7,6 +7,8 @@
  *
  * @todo
  * - date format (d.m.Y H:i:s:ms)
+ * - test creation window
+ * - adjust UAT window height by mouse moving
  *
  * - implement methods:
  * ++ setCookie (add prefix for name and remove cookie after finishing tests; also remove all cookies with prefix at the start of script)
@@ -493,10 +495,10 @@
                     .css($.extend({}, flexCSS, flexColumnCSS, {width: '100%', marginRight: '10px'}))
                     .appendTo(mainDiv);
 
-                var testCreateDiv = $('<div>')
+                /*var testCreateDiv = $('<div>')
                     .attr({id: selectors.create.replace('#', '')})
                     .css($.extend({}, blockCSS, {marginBottom: '10px', height: '200px', maxHeight: '30%'}))
-                    .appendTo(testDiv);
+                    .appendTo(testDiv);*/
 
                 var testResultDiv = $('<div>')
                     .attr({id: selectors.result.replace('#', '')})
@@ -506,6 +508,7 @@
                 var helpDiv = $('<div>')
                     .attr({id: selectors.help.replace('#', '')})
                     .css($.extend({}, blockCSS, {width: '100%', maxWidth: '300px'}))
+                    .html('<div style="margin-bottom:10px;"><div style="float:right;"><b>Ctrl + Alt + U</b></div><div>Show / hide UAT window</div><div style="font-size:11px;margin-top:4px;">If init option <i>output</i> equals to <i>window</i>, it will be showen automatically.<div></div>')
                     .appendTo(mainDiv);
             }
             $('body').css('margin-bottom', getBodyMarginBottom() + (mainDiv.css('display') == 'none' ? 0 : mainDiv.outerHeight()) + 'px');
