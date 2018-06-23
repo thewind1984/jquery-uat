@@ -1,9 +1,11 @@
 /**
- * Plugin for UAT (User Acceptance Testing) of pages
- * Author: thewind
- * Published: 2018-06-19
+ * @name jQuery.UAT
+ * @summary Plugin for UAT (User Acceptance Testing) of pages
+ * @author thewind <thewind05@gmail.com>
+ * @version 1.0
+ * @pubdate: 2018-06-19
  *
- * TODO:
+ * @todo
  * - date format (d.m.Y H:i:s:ms)
  *
  * - implement methods:
@@ -36,7 +38,7 @@
             break_on_error: false,      // break tests on first error
             timeout: 0,      // milliseconds
             output: defaultOutput,      // where to output results (console || window)
-            debug: false,
+            debug: false,       // TODO: add output lines for debug
         }, settings, {obj: this});
         
         settings.timeout = !isNaN(parseFloat(settings.timeout)) && parseFloat(settings.timeout) > 0 ? parseFloat(settings.timeout) : 0;
