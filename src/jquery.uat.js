@@ -17,7 +17,7 @@
  * ++ scrollToObj(selector: string)
  * ++ clickBy(selector: string)
  * ++ wait(milliSeconds: number)
- * -- waitFor(testName: string, selector: string, maxTimeout: number)
+ * -- waitFor(testName: string, selector: string, breakMs: number)
  * -- fillIn(selector: string, value: string|array)
  *
  * - implement test
