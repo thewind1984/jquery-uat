@@ -1,10 +1,14 @@
 /**
- * Plugin for UAT (User Acceptance Testing) of pages
- * Author: thewind
- * Published: 2018-06-19
+ * @name jQuery.UAT
+ * @summary Plugin for UAT (User Acceptance Testing) of pages
+ * @author thewind <thewind05@gmail.com>
+ * @version 1.0
+ * @pubdate: 2018-06-19
  *
- * TODO:
+ * @todo
  * - date format (d.m.Y H:i:s:ms)
+ * - test creation window
+ * - adjust UAT window height by mouse moving
  *
  * - implement methods:
  * ++ setCookie (add prefix for name and remove cookie after finishing tests; also remove all cookies with prefix at the start of script)
@@ -13,7 +17,7 @@
  * ++ scrollToObj(selector: string)
  * ++ clickBy(selector: string)
  * ++ wait(milliSeconds: number)
- * -- waitFor(testName: string, selector: string, maxTimeout: number)
+ * -- waitFor(testName: string, selector: string, breakMs: number)
  * -- fillIn(selector: string, value: string|array)
  *
  * - implement test
@@ -36,7 +40,7 @@
             break_on_error: false,      // break tests on first error
             timeout: 0,      // milliseconds
             output: defaultOutput,      // where to output results (console || window)
-            debug: false,
+            debug: false,       // TODO: add output lines for debug
         }, settings, {obj: this});
         
         settings.timeout = !isNaN(parseFloat(settings.timeout)) && parseFloat(settings.timeout) > 0 ? parseFloat(settings.timeout) : 0;
@@ -419,7 +423,7 @@
      * STEP: scrollToObj
      */
     $.fn.uat.unit.scrollToObj = function(selector, extra){
-        $('html,body').scrollTop($(selector).offset().top + (extra || 0));
+        $('html,body').scrollTop($(selector).offset().top + parseInt(extra || 0));
         return {type: 'success', result: 'scrollTop: ' + $(window).scrollTop()};
     }
 
@@ -491,10 +495,10 @@
                     .css($.extend({}, flexCSS, flexColumnCSS, {width: '100%', marginRight: '10px'}))
                     .appendTo(mainDiv);
 
-                var testCreateDiv = $('<div>')
+                /*var testCreateDiv = $('<div>')
                     .attr({id: selectors.create.replace('#', '')})
                     .css($.extend({}, blockCSS, {marginBottom: '10px', height: '200px', maxHeight: '30%'}))
-                    .appendTo(testDiv);
+                    .appendTo(testDiv);*/
 
                 var testResultDiv = $('<div>')
                     .attr({id: selectors.result.replace('#', '')})
@@ -504,6 +508,7 @@
                 var helpDiv = $('<div>')
                     .attr({id: selectors.help.replace('#', '')})
                     .css($.extend({}, blockCSS, {width: '100%', maxWidth: '300px'}))
+                    .html('<div style="margin-bottom:10px;"><div style="float:right;"><b>Ctrl + Alt + U</b></div><div>Show / hide UAT window</div><div style="font-size:11px;margin-top:4px;">If init option <i>output</i> equals to <i>window</i>, it will be showen automatically.<div></div>')
                     .appendTo(mainDiv);
             }
             $('body').css('margin-bottom', getBodyMarginBottom() + (mainDiv.css('display') == 'none' ? 0 : mainDiv.outerHeight()) + 'px');
