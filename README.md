@@ -3,6 +3,8 @@
 Check you webpages through webbrowser. It's something similar to Selenium or CodeException.
 
 [![GitHub license](https://img.shields.io/github/license/thewind1984/jquery-uat.svg)](https://github.com/thewind1984/jquery-uat/blob/master/LICENSE)
+
+[![GitHub forks](https://img.shields.io/github/forks/thewind1984/jquery-uat.svg)](https://github.com/thewind1984/jquery-uat/network)
 [![GitHub stars](https://img.shields.io/github/stars/thewind1984/jquery-uat.svg)](https://github.com/thewind1984/jquery-uat/stargazers)
 
 ### Purposes of the plugin
