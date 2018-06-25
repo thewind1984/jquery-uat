@@ -2,8 +2,11 @@
 
 Check you webpages through webbrowser. It's something similar to Selenium or CodeException.
 
+[![GitHub package version](https://img.shields.io/github/package-json/v/badges/shields.svg)](https://github.com/thewind1984/jquery-uat)
 [![GitHub license](https://img.shields.io/github/license/thewind1984/jquery-uat.svg)](https://github.com/thewind1984/jquery-uat/blob/master/LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/thewind1984/jquery-uat.svg)](https://github.com/thewind1984/jquery-uat/stargazers)
+
+[![GitHub forks](https://img.shields.io/github/forks/badges/shields.svg?style=social&label=Fork)](https://github.com/thewind1984/jquery-uat)
+[![GitHub forks](https://img.shields.io/github/forks/badges/shields.svg?style=social&label=Fork)](https://github.com/thewind1984/jquery-uat)
 
 ### Purposes of the plugin
 
