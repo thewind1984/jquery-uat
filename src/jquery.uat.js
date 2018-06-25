@@ -423,7 +423,7 @@
      * STEP: scrollToObj
      */
     $.fn.uat.unit.scrollToObj = function(selector, extra){
-        $('html,body').scrollTop($(selector).offset().top + (extra || 0));
+        $('html,body').scrollTop($(selector).offset().top + parseInt(extra || 0));
         return {type: 'success', result: 'scrollTop: ' + $(window).scrollTop()};
     }
 
