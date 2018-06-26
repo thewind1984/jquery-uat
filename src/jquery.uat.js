@@ -61,6 +61,7 @@
         var currentLocation = location.href;
         var started = false;
         var bodyMarginBottom = parseFloat($('body').css('margin-bottom'));
+        var logScope = [];
         
         // private
         function init(){
@@ -145,6 +146,14 @@
             return bodyMarginBottom;
         }
 
+        addLogScope = function(data){
+            logScope.push(data);
+        }
+
+        getLogScope = function(){
+            return logScope;
+        }
+
         function addUnit(testName, args){
             return addIteration.call(this, 'unit', testName, args);
         }
@@ -185,13 +194,11 @@
         // public test
         this.contains = function(selector){
             return addUnit.call(this, 'contains', [selector]);
-            //return $.fn.uat.unit.call(this, 'contains', [selector]);
         }
         
         // public test
         this.notContains = function(selector){
             return addUnit.call(this, 'notContains', [selector]);
-            //return $.fn.uat.unit.call(this, 'notContains', [selector]);
         }
         
         // public test
@@ -217,7 +224,6 @@
         // public step
         this.findObj = function(selector){
             return addStep.call(this, 'findObj', [selector]);
-            //return $.fn.uat.step.call(this, 'findObj', [selector]);
         }
         
         // public step
@@ -265,7 +271,6 @@
             setTimeout(function(){
                 $(settings.obj).trigger('uatqueue');
             }, started ? settings.timeout * 1000 : 50);
-            //$.fn.uat.log.call(this, 'info', 'finished');
         }
         
         return init.call(this);
@@ -455,6 +460,8 @@
             create: '#uat_create',
             result: '#uat_result',
         }
+
+        var that = this;
         
         function draw(){
             if ($(selectors.window).length) {
@@ -510,19 +517,25 @@
                     .css($.extend({}, blockCSS, {width: '100%', maxWidth: '300px'}))
                     .html('<div style="margin-bottom:10px;"><div style="float:right;"><b>Ctrl + Alt + U</b></div><div>Show / hide UAT window</div><div style="font-size:11px;margin-top:4px;">If init option <i>output</i> equals to <i>window</i>, it will be showen automatically.<div></div>')
                     .appendTo(mainDiv);
+
+                this.showResults('window');
             }
             $('body').css('margin-bottom', getBodyMarginBottom() + (mainDiv.css('display') == 'none' ? 0 : mainDiv.outerHeight()) + 'px');
         }
-        
+
         function keyboardListener(){
             $(window).on('keydown', function(e){
                 if (e.ctrlKey && e.altKey && e.keyCode == 85) {
-                    draw();
+                    draw.call(that);
                 }
             });
         }
 
-        addLine = function(key, value, style){
+        this.showResults = function(output){
+            $.fn.uat.log.call(this, output);
+        }
+
+        this.addLine = function(key, value, style){
             var id = 'uat_result_item_' + Math.random() * 100000;
             var resultBlock = $(selectors.result);
             $('<div>')
@@ -534,7 +547,7 @@
         
         this.init = function(){
             if (getSettings().output == 'window') {
-                draw();
+                draw.call(this);
             }
             keyboardListener();
         }
@@ -547,7 +560,7 @@
      */
     $.fn.uat.log = function(type, key, value){
         var color = 'black';
-        
+
         switch (type) {
             case 'error':
                 color = 'red';
@@ -564,16 +577,38 @@
         }
         
         function write(key, value, color){
+            addLogScope([key, value, color]);
+            show.call(this, key, value, color, getSettings().output);
+        }
+
+        function show(key, value, color, output){
             var style = 'color:' + color;
             value = typeof value == 'undefined' ? '' : value;
 
-            if (getSettings().output == 'console') {
+            if (output == 'console') {
                 console.log('%c' + key, style, value);
             } else {
                 $.fn.uat.view.call(this, 'addLine', [key, value, style]);
             }
         }
 
-        write((typeof type != 'undefined' && type != null ? '[' + (new Date().toLocaleString()) + '] [' + type.toUpperCase() + '] ' : '') + key, value, color);
+        function showIn(output){
+            var scope = getLogScope();
+            for (var s=0; s<scope.length; s++) {
+                var lineData = scope[s];
+                lineData.push(output);
+                show.apply(this, lineData);
+            }
+        }
+
+        switch (type) {
+            case 'window':
+            case 'console':
+                showIn.call(this, type);
+                break;
+
+            default:
+                write.call(this, (typeof type != 'undefined' && type != null ? '[' + (new Date().toLocaleString()) + '] [' + type.toUpperCase() + '] ' : '') + key, value, color);
+        }
     }
 }(jQuery));
