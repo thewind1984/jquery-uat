@@ -459,10 +459,16 @@
             help: '#uat_help',
             create: '#uat_create',
             result: '#uat_result',
+            mouseMover: '#uat_mouse_mover',
+            mouseResizer: '#uat_mouse_resize',
         }
-
+        var defaultOpacity = .5;
         var that = this;
-        
+
+        this.mouseIsDown = false;
+        this.mouseObj = null;
+        this.mousePosition = {x: 0, y: 0};
+
         function draw(){
             if ($(selectors.window).length) {
                 var mainDiv = $(selectors.window);
@@ -473,13 +479,15 @@
                     flexCSS = {display: 'flex', flexDirection: 'row'},
                     flexColumnCSS = {flexDirection: 'column'};
 
+                var windowLeft = $.fn.uat.storage.call(this, 'get', 'window.position.left'),
+                    windowTop = $.fn.uat.storage.call(this, 'get', 'window.position.top');
+
                 var mainDiv = $('<div>')
                     .attr({id: selectors.window.replace('#', '')})
                     .css($.extend({}, flexCSS, {
                         position: 'fixed',
-                        bottom: 0,
-                        left: 0,
-                        width: '100%',
+                        left: windowLeft || '10px',
+                        width: 'calc(100% - 20px)',
                         height: '300px',
                         background: '#f1f1f1',
                         color: '#000',
@@ -490,12 +498,26 @@
                         padding: '10px',
                         margin: 0,
                         boxSizing: 'border-box',
-                        borderTop: '2px solid #bbb',
-                        borderTopLeftRadius: '6px',
-                        borderTopRightRadius: '6px',
+                        border: '2px solid #bbb',
+                        borderRadius: '6px',
                         justifyContent: 'space-between',
+                        opacity: defaultOpacity,
+                        transition: 'opacity .3s',
                     }))
+                    .css(typeof windowTop === 'undefined' ? 'bottom' : 'top', windowTop || '5px')
                     .appendTo('body');
+
+                mainDiv.data('offset', mainDiv.position());
+
+                var moverDiv = $('<div>')
+                    .attr({id: selectors.mouseMover.replace('#', ''), title: 'Move UAT window by moving this bar', 'data-obj': 'mover'})
+                    .css($.extend({}, blockCSS, {padding: 0, position: 'absolute', left: '2px', top: '2px', width: 'calc(100% - 4px)', height: '4px', background: '#333', cursor: 'move'}))
+                    .appendTo(mainDiv);
+
+                var resizerDiv = $('<div>')
+                    .attr({id: selectors.mouseResizer.replace('#', ''), title: 'Resize UAT window by moving this corner', 'data-obj': 'resizer'})
+                    .css($.extend({}, blockCSS, {padding: 0, position: 'absolute', bottom: '2px', right: '2px', width: '20px', height: '20px', border: '3px solid #333', borderTop: 0, borderLeft: 0, cursor: 'se-resize'}))
+                    .appendTo(mainDiv);
 
                 var testDiv = $('<div>')
                     .attr({id: selectors.tests.replace('#', '')})
@@ -520,15 +542,55 @@
 
                 this.showResults('window');
             }
-            $('body').css('margin-bottom', getBodyMarginBottom() + (mainDiv.css('display') == 'none' ? 0 : mainDiv.outerHeight()) + 'px');
         }
 
         function keyboardListener(){
-            $(window).on('keydown', function(e){
-                if (e.ctrlKey && e.altKey && e.keyCode == 85) {
-                    draw.call(that);
-                }
-            });
+            $('body')
+                .on('mouseover', selectors.window, function(){ $(this).css('opacity', 1); })
+                .on('mouseout', selectors.window, function(){ $(this).css('opacity', defaultOpacity); });
+
+            $('body')
+                .on('mousedown', selectors.mouseMover + ',' + selectors.mouseResizer, function(e){
+                    that.mouseIsDown = true;
+                    that.mouseObj = $(this).data('obj');
+                    that.mousePosition.x = e.clientX;
+                    that.mousePosition.y = e.clientY;
+                });
+
+            $(window)
+                .on('keydown', function(e){
+                    if (e.ctrlKey && e.altKey && e.keyCode === 85) {
+                        draw.call(that);
+                    }
+                })
+                .on('mouseup', function(){
+                    that.mouseIsDown = false;
+                })
+                .on('mousemove', function(e){
+                    if (that.mouseIsDown) {
+                        var mouseDiff = {x: e.clientX - that.mousePosition.x, y: e.clientY - that.mousePosition.y};
+                        that.mousePosition.x = e.clientX;
+                        that.mousePosition.y = e.clientY;
+
+                        switch (that.mouseObj) {
+                            case 'mover':
+                                var _obj = $(selectors.window);
+                                _obj.data('offset', {
+                                    left: _obj.data('offset').left + mouseDiff.x,
+                                    top: _obj.data('offset').top + mouseDiff.y
+                                });
+                                _obj.css({
+                                    left: _obj.data('offset').left + 'px',
+                                    top: _obj.data('offset').top + 'px'
+                                });
+                                $.fn.uat.storage.call(this, 'set', 'window.position.left', _obj.data('offset').left + 'px');
+                                $.fn.uat.storage.call(this, 'set', 'window.position.top', _obj.data('offset').top + 'px');
+                                break;
+                            // case 'resizer':
+                            //     break;
+                        }
+                    }
+                });
         }
 
         this.showResults = function(output){
@@ -546,7 +608,7 @@
         }
         
         this.init = function(){
-            if (getSettings().output == 'window') {
+            if (getSettings().output === 'window') {
                 draw.call(this);
             }
             keyboardListener();
@@ -609,6 +671,70 @@
 
             default:
                 write.call(this, (typeof type != 'undefined' && type != null ? '[' + (new Date().toLocaleString()) + '] [' + type.toUpperCase() + '] ' : '') + key, value, color);
+        }
+    }
+
+    /**
+     * Storage
+     */
+    $.fn.uat.storage = function() {
+        var uatObjectDist = {
+            window: {
+                position: {
+                    left: 0,
+                    top: 0,
+                },
+                dimension: {
+                    width: 0,
+                    height: 0,
+                },
+            }
+        }
+
+        var storageKey = 'uat_object';
+
+        this.set = function(key, value) {
+            var uatObject = this.object() || uatObjectDist;
+            var obj = this.prepareObjFromKey(key, value);
+            this.object($.extend(true, {}, uatObject, obj));
+        }
+
+        this.get = function(key) {
+            var uatObject = this.object() || {};
+            key = key.split('.');
+            while((_key = key.shift())) {
+                if (typeof uatObject[_key] === 'undefined') {
+                    return;
+                }
+                uatObject = uatObject[_key];
+            }
+            return uatObject;
+        }
+
+        /**
+         * TODO: storageFactory - using cookies || localStorage
+         */
+        this.object = function(arg){
+            if (typeof arg === 'undefined') {
+                var obj = localStorage.getItem(storageKey);
+                return typeof obj === 'undefined' ? obj : JSON.parse(obj);
+            } else {
+                localStorage.setItem(storageKey, JSON.stringify(arg));
+            }
+        }
+
+        this.prepareObjFromKey = function(key, value) {
+            key = key.split('.');
+            var realKey = key.pop(), obj =  tempObj = {};
+            while ((_key = key.shift())) {
+                tempObj = tempObj[_key] = {};
+            }
+            tempObj[realKey] = value;
+            return obj;
+        }
+
+        if (typeof arguments != 'undefined' && arguments.length) {
+            return this[arguments[0]].apply(this, Array.from(arguments).slice(1));
         }
     }
 }(jQuery));
