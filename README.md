@@ -66,8 +66,8 @@ toggle (show / hide) output layer in the browser's window
 
 ## Demo
 
-* [1st simple demo with `.contains` and `.notContains` methods, output to **window**](http://uat.work.dignatiev.ru/docs/demo/01_simple.html)
-* [2nd simple demo with `.contains` and `.notContains` methods, output to **console**](http://uat.work.dignatiev.ru/docs/demo/02_simple.html)
+* [1st simple demo with `.contains` and `.notContains` methods, output to **window**](https://thewind1984.github.io/jquery-uat/demo/01_simple.html)
+* [2nd simple demo with `.contains` and `.notContains` methods, output to **console**](https://thewind1984.github.io/jquery-uat/demo/02_simple.html)
 
 ## Versions
 
