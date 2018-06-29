@@ -66,7 +66,8 @@ toggle (show / hide) output layer in the browser's window
 
 ## Demo
 
-* [Simple demo with `.contains` and `.notContains` methods](http://uat.work.dignatiev.ru/demo/01_simple.html)
+* [1st simple demo with `.contains` and `.notContains` methods, output to **window**](http://uat.work.dignatiev.ru/docs/demo/01_simple.html)
+* [2nd simple demo with `.contains` and `.notContains` methods, output to **console**](http://uat.work.dignatiev.ru/docs/demo/02_simple.html)
 
 ## Versions
 
