@@ -475,8 +475,10 @@
             var mainDiv = $(selectors.window);
             mainDiv.css({
                 bottom: 'auto',
-                top: mainDiv.position().top + 'px',
-            }).data({
+                top: mainDiv.position().top + 'px'
+            });
+            validateWindowState.call(this);
+            mainDiv.data({
                 offset: mainDiv.position(),
                 width: mainDiv.outerWidth(),
                 height: mainDiv.outerHeight()
@@ -487,6 +489,23 @@
             $(selectors.window).css(initialState);
             saveWindowState.call(this);
             $.fn.uat.storage.call(this, 'set', 'window', null);
+        }
+        
+        function validateWindowState(){
+            var obj = $(selectors.window),
+                pos = obj.position(),
+                leftMax = document.body.clientWidth - obj.outerWidth(),
+                topMax = document.body.clientHeight - obj.outerHeight();
+            if (pos.left < 0) {
+                obj.css('left', 0);
+            } else if (pos.left > leftMax) {
+                obj.css('left', leftMax);
+            }
+            if (pos.top < 0) {
+                obj.css('top', 0);
+            } else if (pos.top > topMax) {
+                obj.css('top', topMax);
+            }
         }
         
         function storeWindowState(){
@@ -610,6 +629,7 @@
                     }
                 })
                 .on('resize', function(e){
+                    validateWindowState();
                     saveWindowState();
                     storeWindowState();
                 })
@@ -631,9 +651,14 @@
 
                         switch (that.mouseObj.data('obj')) {
                             case 'mover':
+                                var left = _obj.data('offset').left + mouseDiff.x,
+                                    top = _obj.data('offset').top + mouseDiff.y;
+                                if (left < 0 || left > document.body.clientWidth - _obj.outerWidth() || top < 0 || top > document.body.clientHeight - _obj.outerHeight()) {
+                                    break;
+                                }
                                 _obj.data('offset', {
-                                    left: _obj.data('offset').left + mouseDiff.x,
-                                    top: _obj.data('offset').top + mouseDiff.y
+                                    left: left,
+                                    top: top
                                 });
                                 _obj.css({
                                     left: _obj.data('offset').left + 'px',
