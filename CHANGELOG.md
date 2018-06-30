@@ -11,9 +11,9 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - UAT window styles (margins, paddings, overflows)
 
-## [rc1.0] - 2018-06-25
+## rc1.0 - 2018-06-25
 ### Added
 - Initial version with repository
 
-[Unreleased]: https://github.com/olivierlacan/keep-a-changelog/compare/v1.0...HEAD
-[1.0]: https://github.com/olivierlacan/keep-a-changelog/compare/rc1.0...v1.0
+[Unreleased]: https://github.com/thewind1984/jquery-uat/compare/v1.0...HEAD
+[1.0]: https://github.com/thewind1984/jquery-uat/compare/rc1.0...v1.0
