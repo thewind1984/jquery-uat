@@ -9,6 +9,6 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - UAT window styles (margins, paddings, overflows)
 
-## [RC1.0] - 2018-06-25
+## [rc1.0] - 2018-06-25
 ### Added
 - Initial version with repository
