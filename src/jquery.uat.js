@@ -19,6 +19,7 @@
  * ++ wait(milliSeconds: number)
  * -- waitFor(testName: string, selector: string, breakMs: number)
  * -- fillIn(selector: string, value: string|array)
+ * -- countObjects(selector: string)
  *
  * - implement test
  * ++ hasCookie
@@ -459,28 +460,86 @@
             help: '#uat_help',
             create: '#uat_create',
             result: '#uat_result',
+            mouseMover: '#uat_mouse_mover',
+            mouseResizer: '#uat_mouse_resize',
+        }
+        var defaultOpacity = .3;
+        var that = this;
+        var initialState = {width: 'calc(100% - 20px)', height: '300px', left: '10px', top: 'auto', bottom: '5px'};
+
+        this.mouseIsDown = false;
+        this.mouseObj = null;
+        this.mousePosition = {x: 0, y: 0};
+        
+        function saveWindowState(){
+            var mainDiv = $(selectors.window);
+            mainDiv.css({
+                bottom: 'auto',
+                top: mainDiv.position().top + 'px'
+            });
+            validateWindowState.call(this);
+            mainDiv.data({
+                offset: mainDiv.position(),
+                width: mainDiv.outerWidth(),
+                height: mainDiv.outerHeight()
+            });
+        }
+        
+        function restate(){
+            $(selectors.window).css(initialState);
+            saveWindowState.call(this);
+            $.fn.uat.storage.call(this, 'set', 'window', null);
+        }
+        
+        function validateWindowState(){
+            var obj = $(selectors.window),
+                pos = obj.position(),
+                leftMax = document.body.clientWidth - obj.outerWidth(),
+                topMax = document.body.clientHeight - obj.outerHeight();
+            if (pos.left < 0) {
+                obj.css('left', 0);
+            } else if (pos.left > leftMax) {
+                obj.css('left', leftMax);
+            }
+            if (pos.top < 0) {
+                obj.css('top', 0);
+            } else if (pos.top > topMax) {
+                obj.css('top', topMax);
+            }
+        }
+        
+        function storeWindowState(){
+            var _obj = $(selectors.window);
+            $.fn.uat.storage.call(this, 'set', 'window.position.left', _obj.data('offset').left + 'px');
+            $.fn.uat.storage.call(this, 'set', 'window.position.top', _obj.data('offset').top + 'px');
+            $.fn.uat.storage.call(this, 'set', 'window.dimension.width', _obj.data('width') + 'px');
+            $.fn.uat.storage.call(this, 'set', 'window.dimension.height', _obj.data('height') + 'px');
         }
 
-        var that = this;
-        
         function draw(){
             if ($(selectors.window).length) {
                 var mainDiv = $(selectors.window);
                 mainDiv.toggle();
             } else {
                 var
+                    unSelectableCSS = {'-moz-user-select': '-moz-none', '-khtml-user-select': 'none', '-webkit-user-select': 'none', '-ms-user-select': 'none', 'user-select': 'none'},
                     blockCSS = {border: '1px solid #333', borderRadius: '4px', padding: '10px'},
                     flexCSS = {display: 'flex', flexDirection: 'row'},
-                    flexColumnCSS = {flexDirection: 'column'};
+                    flexColumnCSS = {flexDirection: 'column'},
+                    scrollableCSS = {overflow: 'auto', overflowX: 'inherit'};
+
+                var windowLeft = $.fn.uat.storage.call(this, 'get', 'window.position.left'),
+                    windowTop = $.fn.uat.storage.call(this, 'get', 'window.position.top'),
+                    windowWidth = $.fn.uat.storage.call(this, 'get', 'window.dimension.width'),
+                    windowHeight = $.fn.uat.storage.call(this, 'get', 'window.dimension.height');
 
                 var mainDiv = $('<div>')
                     .attr({id: selectors.window.replace('#', '')})
-                    .css($.extend({}, flexCSS, {
+                    .css($.extend({}, unSelectableCSS, flexCSS, {
                         position: 'fixed',
-                        bottom: 0,
-                        left: 0,
-                        width: '100%',
-                        height: '300px',
+                        left: windowLeft || initialState.left,
+                        width: windowWidth || initialState.width,
+                        height: windowHeight || initialState.height,
                         background: '#f1f1f1',
                         color: '#000',
                         fontSize: '12px',
@@ -488,14 +547,31 @@
                         fontWeight: 'normal',
                         fontStyle: 'normal',
                         padding: '10px',
+                        paddingTop: '16px',
                         margin: 0,
                         boxSizing: 'border-box',
-                        borderTop: '2px solid #bbb',
-                        borderTopLeftRadius: '6px',
-                        borderTopRightRadius: '6px',
+                        border: '2px solid #bbb',
+                        borderRadius: '6px',
                         justifyContent: 'space-between',
+                        opacity: defaultOpacity,
+                        minHeight: '100px',
+                        minWidth: '522px',
+                        transition: 'opacity .3s',
                     }))
+                    .css(typeof windowTop === 'undefined' ? 'bottom' : 'top', windowTop || initialState.bottom)
                     .appendTo('body');
+
+                saveWindowState.call(this);
+
+                var moverDiv = $('<div>')
+                    .attr({id: selectors.mouseMover.replace('#', ''), title: 'Move UAT window by moving this bar', 'data-obj': 'mover'})
+                    .css($.extend({}, blockCSS, {padding: 0, position: 'absolute', left: '2px', top: '2px', width: 'calc(100% - 4px)', height: '0', borderWidth: '3px', background: '#333', cursor: 'move'}))
+                    .appendTo(mainDiv);
+
+                var resizerDiv = $('<div>')
+                    .attr({id: selectors.mouseResizer.replace('#', ''), title: 'Resize UAT window by moving this corner', 'data-obj': 'resizer'})
+                    .css($.extend({}, blockCSS, {padding: 0, position: 'absolute', bottom: '2px', right: '2px', width: '20px', height: '20px', border: '3px solid #333', borderTop: 0, borderLeft: 0, cursor: 'se-resize'}))
+                    .appendTo(mainDiv);
 
                 var testDiv = $('<div>')
                     .attr({id: selectors.tests.replace('#', '')})
@@ -509,26 +585,101 @@
 
                 var testResultDiv = $('<div>')
                     .attr({id: selectors.result.replace('#', '')})
-                    .css($.extend({}, blockCSS, {height: '100%', overflow: 'auto', overflowX: 'inherit'}))
+                    .css($.extend({}, blockCSS, {height: '100%'}, scrollableCSS))
                     .appendTo(testDiv);
 
                 var helpDiv = $('<div>')
                     .attr({id: selectors.help.replace('#', '')})
-                    .css($.extend({}, blockCSS, {width: '100%', maxWidth: '300px'}))
-                    .html('<div style="margin-bottom:10px;"><div style="float:right;"><b>Ctrl + Alt + U</b></div><div>Show / hide UAT window</div><div style="font-size:11px;margin-top:4px;">If init option <i>output</i> equals to <i>window</i>, it will be showen automatically.<div></div>')
+                    .css($.extend({}, blockCSS, {width: '100%', maxWidth: '300px'}, scrollableCSS))
+                    .append('<div style="margin-bottom:10px;"><div style="float:right;"><b>Ctrl + Alt + U</b></div><div>Show / hide UAT window</div><div style="font-size:11px;margin-top:4px;">If init option <i>output</i> equals to <i>window</i>, it will be showen automatically.<div></div>')
+                    .append('<div style="margin-bottom:10px;"><div style="float:right;"><b>Ctrl + Alt + R</b></div><div>Restore UAT window to initial state</div><div style="font-size:11px;margin-top:4px;">Full width, sticked to bottom of the window</div></div>')
                     .appendTo(mainDiv);
 
                 this.showResults('window');
             }
-            $('body').css('margin-bottom', getBodyMarginBottom() + (mainDiv.css('display') == 'none' ? 0 : mainDiv.outerHeight()) + 'px');
         }
 
         function keyboardListener(){
-            $(window).on('keydown', function(e){
-                if (e.ctrlKey && e.altKey && e.keyCode == 85) {
-                    draw.call(that);
-                }
-            });
+            $('body')
+                .on('mouseover touchstart', selectors.window, function(){ $(this).css('opacity', 1); })
+                .on('mouseout touchend', selectors.window, function(){ $(this).css('opacity', defaultOpacity); });
+
+            $('body')
+                .on('mousedown touchstart', selectors.mouseMover + ',' + selectors.mouseResizer, function(e){
+                    that.mouseIsDown = true;
+                    that.mouseObj = $(this);
+                    that.mousePosition.x = e.type == 'mousedown' ? e.clientX : e.touches[0].clientX;
+                    that.mousePosition.y = e.type == 'mousedown' ? e.clientY : e.touches[0].clientY;
+                    $(this).data('border', $(this).css('border-color'));
+                    $(this).css('border-color', 'red');
+                });
+
+            $(window)
+                .on('keydown', function(e){
+                    if (!(e.ctrlKey && e.altKey)) {
+                        return;
+                    }
+                    switch (e.keyCode) {
+                        case 85:        // U
+                            draw.call(that);
+                            break;
+                        case 82:        // R
+                            restate.call(that);
+                            break;
+                    }
+                })
+                .on('resize', function(e){
+                    validateWindowState();
+                    saveWindowState();
+                    storeWindowState();
+                })
+                .on('mouseup touchend', function(){
+                    that.mouseIsDown = false;
+                    if (that.mouseObj !== null) {
+                        that.mouseObj.css('border-color', that.mouseObj.data('border'));
+                    }
+                })
+                .on('mousemove touchmove', function(e){
+                    if (that.mouseIsDown) {
+                        var x = e.type == 'mousemove' ? e.clientX : e.changedTouches[0].clientX,
+                            y = e.type == 'mousemove' ? e.clientY : e.changedTouches[0].clientY,
+                            mouseDiff = {x: x - that.mousePosition.x, y: y - that.mousePosition.y};
+                        that.mousePosition.x = x;
+                        that.mousePosition.y = y;
+                        
+                        var _obj = $(selectors.window);
+
+                        switch (that.mouseObj.data('obj')) {
+                            case 'mover':
+                                var left = _obj.data('offset').left + mouseDiff.x,
+                                    top = _obj.data('offset').top + mouseDiff.y;
+                                if (left < 0 || left > document.body.clientWidth - _obj.outerWidth() || top < 0 || top > document.body.clientHeight - _obj.outerHeight()) {
+                                    break;
+                                }
+                                _obj.data('offset', {
+                                    left: left,
+                                    top: top
+                                });
+                                _obj.css({
+                                    left: _obj.data('offset').left + 'px',
+                                    top: _obj.data('offset').top + 'px'
+                                });
+                                break;
+                            
+                            case 'resizer':
+                                _obj.data({
+                                    width: _obj.data('width') + mouseDiff.x,
+                                    height: _obj.data('height') + mouseDiff.y
+                                });
+                                _obj.css({
+                                    width: _obj.data('width') + 'px',
+                                    height: _obj.data('height') + 'px'
+                                });
+                                break;
+                        }
+                        storeWindowState();
+                    }
+                });
         }
 
         this.showResults = function(output){
@@ -546,7 +697,7 @@
         }
         
         this.init = function(){
-            if (getSettings().output == 'window') {
+            if (getSettings().output === 'window') {
                 draw.call(this);
             }
             keyboardListener();
@@ -609,6 +760,70 @@
 
             default:
                 write.call(this, (typeof type != 'undefined' && type != null ? '[' + (new Date().toLocaleString()) + '] [' + type.toUpperCase() + '] ' : '') + key, value, color);
+        }
+    }
+
+    /**
+     * Storage
+     */
+    $.fn.uat.storage = function() {
+        var uatObjectDist = {
+            window: {
+                position: {
+                    left: 0,
+                    top: 0,
+                },
+                dimension: {
+                    width: 0,
+                    height: 0,
+                },
+            }
+        }
+
+        var storageKey = 'uat_object';
+
+        this.set = function(key, value) {
+            var uatObject = this.object() || uatObjectDist;
+            var obj = this.prepareObjFromKey(key, value);
+            this.object($.extend(true, {}, uatObject, obj));
+        }
+
+        this.get = function(key) {
+            var uatObject = this.object() || {};
+            key = key.split('.');
+            while((_key = key.shift())) {
+                if (typeof uatObject[_key] === 'undefined' || uatObject[_key] === null) {
+                    return;
+                }
+                uatObject = uatObject[_key];
+            }
+            return uatObject;
+        }
+
+        /**
+         * TODO: storageFactory - using cookies || localStorage
+         */
+        this.object = function(arg){
+            if (typeof arg === 'undefined') {
+                var obj = localStorage.getItem(storageKey);
+                return typeof obj === 'undefined' ? obj : JSON.parse(obj);
+            } else {
+                localStorage.setItem(storageKey, JSON.stringify(arg));
+            }
+        }
+
+        this.prepareObjFromKey = function(key, value) {
+            key = key.split('.');
+            var realKey = key.pop(), obj =  tempObj = {};
+            while ((_key = key.shift())) {
+                tempObj = tempObj[_key] = {};
+            }
+            tempObj[realKey] = value;
+            return obj;
+        }
+
+        if (typeof arguments != 'undefined' && arguments.length) {
+            return this[arguments[0]].apply(this, Array.from(arguments).slice(1));
         }
     }
 }(jQuery));
