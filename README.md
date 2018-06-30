@@ -71,7 +71,7 @@ toggle (show / hide) output layer in the browser's window
 
 ## Versions
 
-* **1.0**
+* **1.0**  
 Release date: *30th June, 2018*
 * **RC1.0**  
 Release date: *25th June, 2018*
