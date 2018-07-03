@@ -51,6 +51,10 @@ scrolls the page to the position equaled to the `.offset().top` coordinate of th
 **NOTE:** *You can add some pixels by passing `extra` argument, which is integer by default.*
 * `.wait (number: ms)`  
 waits for passed milliseconds before the next test / step. It could be helpful, if you called `.clickBy` method, which uses some animation, and then you would like to check for instance, `.isObjVisible`
+* `.redirectTo (string: url)`  
+redirects current page to another URL in order to proceed with tests  
+**NOTE 1:** *each page should include .js file of plugin in order to be initialized after DOM is loaded*  
+**NOTE 2:** *redirection to the initial page, from where tests are started, could bring unexpected results*
 
 ### Hotkeys
 
