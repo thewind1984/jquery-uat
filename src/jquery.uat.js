@@ -33,7 +33,7 @@
 (function($){
     $.fn.uat = function(settings){
         var defaultOutput = 'console';
-        
+
         settings = typeof settings == 'object' ? settings : {};
         settings = $.extend({}, {
             obj: null,      // current obj for running tests
@@ -56,10 +56,10 @@
          * result
          */
         var tests = [];
-        var testNum = 0;
-        var storageTestKey = 'uat_tests';
         var lastFoundObj = false;
         var currentLocation = location.href;
+        var tempLocation = currentLocation;
+        var testLocationPage = null;
         var started = false;
         var bodyMarginBottom = parseFloat($('body').css('margin-bottom'));
         var logScope = [];
@@ -67,24 +67,44 @@
         // private
         function init(){
             console.clear();                // clear console
-            initStorage.call(this);         // prepare storage data
+            saveSettings.call(this);        // save current settings into storage
             $.fn.uat.view.call(this);       // prepare output
             listeners.call(this);           // setup event listeners
+            initStorage.call(this);         // run tests from storage
             return this;
         }
-
+        
         function listeners(){
+            if ($.fn.uat.instance.call(this)) {
+                return;
+            }
             var that = this;
             $(settings.obj).on('uatqueue', function(e){
                 runQueue.call(that);
             });
         }
+
+        function saveSettings(){
+            $.fn.uat.storage.call(this, 'set', 'settings', settings);
+        }
         
         function initStorage(){
-            var storedTests = localStorage.getItem('uat_tests');
-            if (typeof storedTests != 'undefined' && storedTests != null) {
-                storedTests = JSON.parse(storedTests);
-                console.log('storedTests', storedTests);
+            var storedTests = $.fn.uat.storage.call(this, 'get', 'tests');
+            if (typeof storedTests != 'undefined' && storedTests !== null && storedTests.length) {
+                $.fn.uat.instance.call(this, 'set');
+                tests = storedTests;
+                var testNum = 0;
+                while (tests[testNum].passed) {
+                    var test = tests[testNum];
+                    if (testLocationPage !== test.page) {
+                        $.fn.uat.log.call(this, null, '--- page', test.page);
+                        testLocationPage = test.page;
+                    }
+                    // console.log('testNum', testNum + ' - passed');
+                    $.fn.uat.log.call(this, test.result.type, test.name + ' test: ' + $.fn.uat.args.call(this, test.args), test.result.result);
+                    testNum++;
+                }
+                this.run();
             }
         }
         
@@ -104,12 +124,16 @@
                 }
                 lastFoundObj = false;
             }
+            var testNum = $.fn.uat.storage.call(this, 'get', 'testNum');
             tests[testNum].result = resultData;
+            tests[testNum].passed = 1;
+            $.fn.uat.storage.call(this, 'set', 'tests', tests);
+            $.fn.uat.storage.call(this, 'set', 'testNum', testNum + 1);
             if (settings.timeout) {
                 $.fn.uat.log.call(this, null, '--- timeout', settings.timeout + 'sec');
                 sleep(settings.timeout * 1000)
             }
-            return this;
+            return resultData.action || this;
         }
 
         resultation = function(){
@@ -127,6 +151,11 @@
                 types2.push(type + ': ' + count);
             });
             $.fn.uat.log.call(this, null, '--- tests finished', types2.join(', '));
+            //console.log(JSON.stringify($.fn.uat.storage.call(this, 'get', 'tests')));
+            $.fn.uat.storage.call(this, 'set', 'tests', null);      // clean
+            $.fn.uat.storage.call(this, 'set', 'settings', {});   // clean
+            $.fn.uat.storage.call(this, 'set', 'testNum', 0);    // clean
+            $.fn.uat.instance.call(this, 'del');
             return this;
         }
         
@@ -154,7 +183,7 @@
         getLogScope = function(){
             return logScope;
         }
-
+        
         function addUnit(testName, args){
             return addIteration.call(this, 'unit', testName, args);
         }
@@ -164,32 +193,48 @@
         }
 
         function addIteration(type, name, args){
+            if ($.fn.uat.instance.call(this)) {
+                console.log('skip adding ' + type + ' (' + name + ')');
+                return this;
+            }
             tests.push({
                 type: type,
                 name: name,
-                args: args,
+                args: args || [],
                 passed: 0,
                 date: null,
                 result: null,
-                page: currentLocation,
+                page: tempLocation,
             });
             return this;
         }
 
         function runQueue(){
+            var testNum = $.fn.uat.storage.call(this, 'get', 'testNum') || 0;
             if (testNum >= tests.length) {
+                // console.log(testNum + ' <=> ' + tests.length);
                 return resultation.call(this);
             }
+            var test = tests[testNum];
             if (!started) {
-                $.fn.uat.log.call(this, null, '--- page', currentLocation);
+                $.fn.uat.log.call(this, null, '--- page', test.page);
                 started = new Date();
             }
-            var test = tests[testNum];
+            // console.log('testNum', testNum);
+            if (typeof test.page == 'undefined' || test.page !== currentLocation) {
+                return this;
+            }
             test.date = new Date();
-            test.passed = 1;
-            $.fn.uat[test.type].call(this, test.name, test.args);
-            testNum++;
-            this.finish();
+            var itemResult = $.fn.uat[test.type].call(this, test.name, test.args);
+            if (typeof itemResult !== 'string') {
+                this.run();
+            } else {
+                switch (itemResult) {
+                    case 'stop':
+                        // console.log('stop after item');
+                        break;
+                }
+            }
         }
         
         // public test
@@ -239,7 +284,12 @@
         
         // public step
         this.redirectTo = function(url){
-            
+            url = $.trim(url);
+            if (url !== tempLocation) {
+                var result = addStep.call(this, 'redirectTo', [url]);
+                tempLocation = url;
+                return result;
+            }
         }
         
         // public step
@@ -269,12 +319,28 @@
 
         // run all steps
         this.finish = function(){
+            if ($.fn.uat.instance.call(this)) {
+                return this;
+            }
+            $.fn.uat.storage.call(this, 'set', 'tests', tests);
+            this.run();
+        }
+
+        this.run = function(){
             setTimeout(function(){
                 $(settings.obj).trigger('uatqueue');
             }, started ? settings.timeout * 1000 : 50);
         }
-        
+
         return init.call(this);
+    }
+
+    $.fn.uat.args = function(args){
+        var argsList = [];
+        $(args).each(function(){
+            argsList.push(this.toString());
+        });
+        return argsList.join(', ');
     }
     
     /**
@@ -282,16 +348,8 @@
      */
     $.fn.uat.unit = function(testName, testArgs){
         var resultData = $.fn.uat.unit[testName].apply(this, testArgs);
-        $.fn.uat.log.call(this, resultData.type, testName + ' test: ' + getArgsString(testArgs), resultData.result);
+        $.fn.uat.log.call(this, resultData.type, testName + ' test: ' + $.fn.uat.args.call(this, testArgs), resultData.result);
         return testFinished.call(this, 'unit', resultData);
-        
-        function getArgsString(args){
-            var argsList = [];
-            $(args).each(function(){
-                argsList.push(this.toString());
-            });
-            return argsList.join(', ');
-        }
     }
     
     /**
@@ -386,16 +444,8 @@
      */
     $.fn.uat.step = function(testName, testArgs){
         var resultData = $.fn.uat.unit[testName].apply(this, testArgs);
-        $.fn.uat.log.call(this, resultData.type, testName + ' test: ' + getArgsString(testArgs), resultData.result);
+        $.fn.uat.log.call(this, resultData.type, testName + ' test: ' + $.fn.uat.args.call(this, testArgs), resultData.result);
         return testFinished.call(this, 'step', resultData);
-        
-        function getArgsString(args){
-            var argsList = [];
-            $(args).each(function(){
-                argsList.push(this.toString());
-            });
-            return argsList.join(', ');
-        }
     }
     
     /**
@@ -447,6 +497,14 @@
     $.fn.uat.unit.wait = function(ms){
         sleep.call(this, ms);
         return {type: 'success', result: true};
+    }
+
+    /**
+     * STEP: redirectTo
+     */
+    $.fn.uat.unit.redirectTo = function(url){
+        location.href = url;
+        return {type: 'success', result: true, action: 'stop'};
     }
 
     /**
@@ -777,7 +835,10 @@
                     width: 0,
                     height: 0,
                 },
-            }
+            },
+            settings: {},
+            tests: [],
+            testNum: 0,
         }
 
         var storageKey = 'uat_object';
@@ -826,4 +887,40 @@
             return this[arguments[0]].apply(this, Array.from(arguments).slice(1));
         }
     }
+    
+    /**
+     * Singleton pattern of class
+     */
+    $.fn.uat.instance = function(method){
+        this.check = function(){
+            return typeof $(document).data('uat') !== 'undefined';
+        }
+        
+        this.set = function(){
+            $(document).data('uat', true);
+        }
+        
+        this.del= function(){
+            $(document).removeData('uat');
+        }
+        
+        this[method||'check'].call(this);
+    }
+
+    // initial of plugin automatically
+    $(document).ready(function(e){
+        var tests = $.fn.uat.storage.call(this, 'get', 'tests');
+        if (typeof tests != 'undefined' && tests !== null && tests.length) {
+            var settings = $.fn.uat.storage.call(this, 'get', 'settings'),
+                obj = settings.obj;
+
+            $.each(settings, function(k, v){
+                if (k === 'obj') {
+                    delete settings[k];
+                }
+            });
+
+            $(document).uat(settings);
+        }
+    });
 }(jQuery));
