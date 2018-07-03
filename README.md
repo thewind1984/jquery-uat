@@ -60,6 +60,8 @@ redirects current page to another URL in order to proceed with tests
 
 * `CTRL + ALT + U`  
 toggle (show / hide) output layer in the browser's window
+* `CTRL + ALT + R`  
+reset UAT window position / dimensions to default
 
 ## Roadmap
 
@@ -75,6 +77,8 @@ toggle (show / hide) output layer in the browser's window
 
 ## Versions
 
+* **1.0.1**  
+Release date: *3th July, 2018*
 * **1.0**  
 Release date: *30th June, 2018*
 * **RC1.0**  
