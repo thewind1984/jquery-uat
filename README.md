@@ -62,11 +62,11 @@ redirects current page to another URL in order to proceed with tests
 toggle (show / hide) output layer in the browser's window
 * `CTRL + ALT + R`  
 reset UAT window position / dimensions to default
-* `CTRL + ALT + S`
+* `CTRL + ALT + S`  
 stop tests, which are already run
-* `CTRL + ALT + G`
+* `CTRL + ALT + G`  
 run tests from the start (`goto`)
-* `CTRL + ALT + P`
+* `CTRL + ALT + P`  
 pause / resume tests
 
 ## Roadmap
