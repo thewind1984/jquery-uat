@@ -1,0 +1,33 @@
+<!DOCTYPE>
+<html>
+<head>
+    <title>jQuery UAT simple demo</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="user-acceptance tests with jquery.uat plugin for simplest checks">
+
+    <script src="../js/jquery-3.3.1.min.js"></script>
+    <script src="../../src/jquery.uat2.js?1"></script>
+
+    <script>
+        var uatObj;
+        $(document).ready(function(){
+            uatObj = $(document).uat({
+                // timeout: 0.3,
+                output: 'window'
+            });
+
+            uatObj
+                .hasCookie('test_cookie')
+                .removeCookie('test_cookie')
+                .hasCookie('test_cookie')
+                .setCookie('test_cookie2', 1)
+                .hasCookie('test_cookie2')
+                .finish();
+        });
+    </script>
+</head>
+<body>
+<p>02_simple is here!</p>
+</body>
+</html>
