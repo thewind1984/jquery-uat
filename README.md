@@ -71,10 +71,10 @@ pause / resume tests
 
 ## Roadmap
 
-* Using tests through website (with redirections)
 * Implementing of methods `.fillIn` (for populating of any input fields) and `.waitFor` for waiting for appearing of some objects
-* Saving and restoring tests' configurations with JSON format
+* Restoring tests' configurations with JSON format
 * Adding initialization options, like `step_by_step`, `break_on_error` 
+* Manage inline options on-the-fly inside UAT window
 
 ## Demo
 
