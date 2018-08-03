@@ -393,11 +393,11 @@
      */
     $.fn.uat.unit.isObjVisible = function(selector){
         var obj = $(selector),
-            objTop = obj.offset().top,
+            objTop = obj.length ? obj.offset().top : 0,
             objHeight = obj.outerHeight(),
             objTopHeight = objTop + objHeight,
             fullHeight = $(window).outerHeight() + $(window).scrollTop(),
-            result = objTop < fullHeight,
+            result = obj.length && objTop < fullHeight,
             visibilityPercentage = !result ? 0 : (objTopHeight <= fullHeight ? 100 : (objHeight - (objTopHeight - fullHeight)) / objHeight * 100);
         return {type: result ? 'success' : 'error', result: (result ? 'true' : 'false') + ' (' + visibilityPercentage + '%)'};
     }

@@ -41,11 +41,12 @@
             });
 
             uatObj
-                .contains('#ex')
-                .notContains('.failed')
-                .findObj('.select')
-                    .contains('[value="12"]')
-                .contains('[value="23"]')
+                .redirectTo('./01_simple.html')
+                    .contains('#ex')
+                    .notContains('.failed')
+                    .findObj('.select')
+                        .contains('[value="12"]')
+                    .contains('[value="23"]')
 
                 .redirectTo('./02_simple.html')
                     .contains('p')
@@ -55,7 +56,7 @@
                     .setCookie('test_cookie2', 1)
                     .hasCookie('test_cookie2')
 
-                .redirectTo('./01_simple.html')
+                .redirectTo('./03_simple.html')
                     .contains('p')
                     .isObjVisible('#dummy')
                     .clickBy('#btn')
