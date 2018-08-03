@@ -54,7 +54,7 @@ waits for passed milliseconds before the next test / step. It could be helpful, 
 * `.redirectTo (string: url)`  
 redirects current page to another URL in order to proceed with tests  
 **NOTE 1:** *each page should include .js file of plugin in order to be initialized after DOM is loaded*  
-**NOTE 2:** *redirection to the initial page, from where tests are started, could bring unexpected results*
+**NOTE 2:** *redirection to the initial page, from where tests are started, could bring unexpected results (ONLY FOR v1.*)*
 
 ### Hotkeys
 
@@ -62,21 +62,30 @@ redirects current page to another URL in order to proceed with tests
 toggle (show / hide) output layer in the browser's window
 * `CTRL + ALT + R`  
 reset UAT window position / dimensions to default
+* `CTRL + ALT + S`  
+stop tests, which are already run
+* `CTRL + ALT + G`  
+run tests from the start (`goto`)
+* `CTRL + ALT + P`  
+pause / resume tests
 
 ## Roadmap
 
-* Using tests through website (with redirections)
 * Implementing of methods `.fillIn` (for populating of any input fields) and `.waitFor` for waiting for appearing of some objects
-* Saving and restoring tests' configurations with JSON format
+* Restoring tests' configurations with JSON format
 * Adding initialization options, like `step_by_step`, `break_on_error` 
+* Manage inline options on-the-fly inside UAT window
 
 ## Demo
 
 * [1st simple demo with `.contains` and `.notContains` methods, output to **window**](https://thewind1984.github.io/jquery-uat/demo/01_simple.html)
 * [2nd simple demo with `.contains` and `.notContains` methods, output to **console**](https://thewind1984.github.io/jquery-uat/demo/02_simple.html)
+* [3rd complex demo with different methods and redirections](https://thewind1984.github.io/jquery-uat/demo/03_simple.html)
 
 ## Versions
 
+* **2.0.0**  
+Release date: *3th August, 2018*
 * **1.0.1**  
 Release date: *3th July, 2018*
 * **1.0**  
