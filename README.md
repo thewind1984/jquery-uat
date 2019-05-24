@@ -25,11 +25,11 @@ where to output results of the tests
 page contains element
 * `.notContains (string: selector)`  
 page does not contains element
-* `.hasCookie (string: cookieName)`  
+* `.hasCookie (string: cookieName, boolean: expected)`  
 page has cookie
 * `.hasJsVariable (string variableName)`  
 page has JS variable
-* `.isObjVisible (string: selector)`  
+* `.isObjVisible (string: selector, boolean: expected)`  
 is object visible on the current window area
 * `.valueEqualsTo (string: selector, string: value)`  
 is value of object equaled to...  
@@ -40,6 +40,8 @@ This test can be applied to any field (`select`, `input`, `button`, `textarea`).
 * `.findObj (string: selector)`  
 moves current caret to the object by selector id  
 **NOTE:** *when you run any test after `.findObj`, caret will be returned to the root object (with which plugin was initialized) after test is done*
+* `.resetObj ()`  
+resets the object, previously found in `.findObj` method
 * `.setCookie (string: cookieName, mixed: cookieValue)`  
 sets new cookie (or updates existing) with the passed value
 * `.removeCookie (string: cookieName)`  
@@ -55,6 +57,9 @@ waits for passed milliseconds before the next test / step. It could be helpful, 
 redirects current page to another URL in order to proceed with tests  
 **NOTE 1:** *each page should include .js file of plugin in order to be initialized after DOM is loaded*  
 **NOTE 2:** *redirection to the initial page, from where tests are started, could bring unexpected results (ONLY FOR v1.*)*
+* `.fillIn (string: selector, mixed: value)`  
+Fills any object by selector with specified value
+
 
 ### Hotkeys
 
@@ -68,10 +73,12 @@ stop tests, which are already run
 run tests from the start (`goto`)
 * `CTRL + ALT + P`  
 pause / resume tests
+* `CTRL + ALT + C`  
+clean console
 
 ## Roadmap
 
-* Implementing of methods `.fillIn` (for populating of any input fields) and `.waitFor` for waiting for appearing of some objects
+* Implementing `.waitFor` method for waiting for appearing of some objects
 * Restoring tests' configurations with JSON format
 * Adding initialization options, like `step_by_step`, `break_on_error` 
 * Manage inline options on-the-fly inside UAT window
@@ -84,6 +91,8 @@ pause / resume tests
 
 ## Versions
 
+* **2.1.0**  
+Unreleased yet
 * **2.0.0**  
 Release date: *3th August, 2018*
 * **1.0.1**  
