@@ -1,9 +1,10 @@
 /**
  * @name jQuery.UAT v2
  * @summary Plugin for UAT (User Acceptance Testing) of pages
- * @author thewind <thewind05@gmail.com>
- * @version 2.0
- * @pubdate: 2018-06-19
+ * @author Dmitriy Ignatiev <thewind05@gmail.com>
+ * @version 2.1.0
+ * @pubdate 2018-06-19
+ * @updated 2019-05-24
  */
 (function($){
     $.fn.uat = function(settings){
@@ -83,13 +84,6 @@
                                     $.fn.uat.log.call(this, null, '--- redirection...');
                                     break;
                             }
-                        }
-                        break;
-
-                    case 'frameReady':
-                        if (isRedirected) {
-                            isRedirected = false;
-                            run();
                         }
                         break;
                 }
@@ -404,8 +398,6 @@
         // run only in TOP level, not in frame
         if (!isFrame) {
             init();
-        } else {
-            parent.postMessage(JSON.stringify({command: 'frameReady'}), location.href);
         }
 
         return this;
