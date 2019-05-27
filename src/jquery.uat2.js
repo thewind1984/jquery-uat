@@ -34,7 +34,9 @@
             isPaused = false,
             testInProcess = false,
             isLastTest = false,
-            frameLoadedTimes = 0;
+            frameLoadedTimes = 0,
+            currentTestName = null,
+            testSets = {};
 
         function init(){
             $('body').html('<iframe id="source_site_iframe" sandbox="allow-same-origin allow-scripts" style="position:absolute;left:0;top:0;width:100%;height:100%;border:0;" src="' + location.href + '" onload="uatObj.frameLoaded();"></iframe><div id="iframe_loader" style="position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:2;display:flex;align-items:center;justify-content:center;font-size:50px;font-weight:bold;text-shadow:1px 1px 5px #fff;display:none;">Redirection...</div>');
@@ -215,6 +217,14 @@
                 result: null,
                 page: tempLocation,
             });
+
+            if (currentTestName !== null) {
+                if (typeof testSets[currentTestName] === 'undefined') {
+                    testSets[currentTestName] = {commited: false, tests: []};
+                }
+                testSets[currentTestName].tests.push({type: type, name: name, args: args});
+            }
+
             return this;
         }
 
@@ -280,6 +290,34 @@
         function receiveTestResult(test, result){
             $.fn.uat.log.call(this, result.type, test.name + ' test: ' + $.fn.uat.args.call(this, test.args), result.result, {'class': 'test-result-' + result.type});
             return testFinished.call(this, test.type, result);
+        }
+
+        // public action
+        this.beginTestSet = function(testName){
+            if (currentTestName === null && (typeof testSets[testName] === 'undefined' || testSets[testName].commited === false)) {
+                currentTestName = testName;
+            }
+            return this;
+        }
+
+        // public action
+        this.commitTestSet = function(){
+            if (currentTestName !== null && typeof testSets[currentTestName] !== 'undefined' && testSets[currentTestName].commited === false) {
+                testSets[currentTestName].commited = true;
+            }
+            currentTestName = null;
+            return this;
+        }
+
+        // public action
+        this.involveTestSet = function(testName){
+            if (testName !== null && typeof testSets[testName] !== 'undefined' && testSets[testName].commited === true && testSets[testName].tests.length > 0) {
+                for (var t = 0; t < testSets[testName].tests.length; t++) {
+                    var test = testSets[testName].tests[t];
+                    addIteration(test.type, test.name, test.args);
+                }
+            }
+            return this;
         }
 
         // public test
@@ -625,14 +663,14 @@
         var
             unSelectableCSS = {'-moz-user-select': '-moz-none', '-khtml-user-select': 'none', '-webkit-user-select': 'none', '-ms-user-select': 'none', 'user-select': 'none'},
             blockCSS = {border: '1px solid #333', borderRadius: '4px', padding: '10px'},
-            flexCSS = {display: 'flex', flexDirection: 'row'},
+            flexCSS = {display: 'flex', flexDirection: 'row', boxSizing: 'border-box'},
             flexColumnCSS = {flexDirection: 'column'},
             scrollableCSS = {overflow: 'auto', overflowX: 'inherit'},
             tabCSS = {borderBottomLeftRadius: 0, borderBottomRightRadius: 0, padding: '3px 6px 8px', cursor: 'pointer', position: 'relative', top: '1px', marginTop: 0, borderLeftWidth: 0, fontSize: '11px', lineHeight: '100%', zIndex: 0},
             tabActiveCSS = {borderBottomColor: '#efefef', zIndex: 2, top: 0, marginTop: '-2px', paddingTop: '6px', paddingBottom: '13px'},
             tabFirstCSS = {borderLeftWidth: '1px'},
             buttonCSS = {cursor: 'pointer', background: '#aaa', color: '#fff', fontWeight: 'normal', padding: '2px 5px', borderRadius: '4px'},
-            labelCss = {cursor: 'pointer', background: '#eee', color: '#000', borderRadius: '4px', padding: '2px 5px', position: 'relative', top: '-1px', marginLeft: '3px', textDecoration: 'none', outline: 'none'};
+            labelCss = {cursor: 'pointer', background: '#eee', color: '#000', borderRadius: '4px', padding: '2px 5px', position: 'relative', top: '-1px', marginLeft: '3px', textDecoration: 'none', outline: 'none', whiteSpace: 'nowrap'};
 
         function saveWindowState(){
             var mainDiv = $(selectors.window);
@@ -732,7 +770,7 @@
 
                 var testDiv = $('<div>')
                     .attr({id: selectors.tests.replace('#', '')})
-                    .css($.extend({}, flexCSS, flexColumnCSS, {width: '100%', marginRight: '10px', zIndex: 1}))
+                    .css($.extend({}, flexCSS, flexColumnCSS, {width: '100%', paddingRight: '10px', zIndex: 1, maxWidth: 'calc(100% - 300px)'}))
                     .appendTo(mainDiv);
 
                 var rowDiv = $('<div>')
@@ -756,11 +794,11 @@
                     .appendTo(tabsDiv);
 
                 var statsDiv = $('<div>')
-                    .css($.extend({}, flexCSS))
+                    .css($.extend({}, flexCSS, {justifyContent: 'flex-end'}))
                     .appendTo(rowDiv);
 
                 var currentPageDiv = $('<a data-current_page>')
-                    .css($.extend({}, labelCss, {textDecoration: 'underline'}))
+                    .css($.extend({}, labelCss, {textDecoration: 'underline', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '60%', justifyContent: 'flex-end'}))
                     .attr({href: '#', target: '_blank', title: 'Current page, where tests are run'})
                     .text('')
                     .appendTo(statsDiv);
@@ -809,7 +847,7 @@
 
                 var helpDiv = $('<div>')
                     .attr({id: selectors.help.replace('#', '')})
-                    .css($.extend({}, blockCSS, {width: '100%', maxWidth: '300px'}, scrollableCSS))
+                    .css($.extend({}, blockCSS, {width: '100%', maxWidth: '300px', minWidth: '300px'}, scrollableCSS))
                     .append('<div style="margin-bottom:10px;"><div style="float:right;"><b data-uat_keycode="U">Ctrl + Alt + U</b></div><div>Show / hide UAT window</div><div style="font-size:11px;margin-top:4px;">If init option <i>output</i> equals to <i>window</i>, it will be showen automatically.<div></div>')
                     .append('<div style="margin-bottom:10px;"><div style="float:right;"><b data-uat_keycode="R">Ctrl + Alt + R</b></div><div>Restore UAT window to initial state</div><div style="font-size:11px;margin-top:4px;">Full width, sticked to bottom of the window</div></div>')
                     .append('<div style="margin-bottom:10px;"><div style="float:right;"><b data-uat_keycode="G">Ctrl + Alt + G</b></div><div>Start tests</div></div>')
