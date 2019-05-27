@@ -321,27 +321,26 @@
         }
 
         // public test
-        this.contains = function(selector){
-            return addUnit.call(this, 'contains', [selector]);
-        }
-
-        // public test
-        this.notContains = function(selector){
-            return addUnit.call(this, 'notContains', [selector]);
+        this.contains = function(selector, expected){
+            expected = typeof expected !== 'boolean' ? true : expected;
+            return addUnit.call(this, 'contains', [selector, expected]);
         }
 
         // public test
         this.hasCookie = function(cookieName, expected){
+            expected = typeof expected !== 'boolean' ? true : expected;
             return addUnit.call(this, 'hasCookie', [cookieName, expected]);
         }
 
         // public test
         this.isObjVisible = function(selector, expected){
+            expected = typeof expected !== 'boolean' ? true : expected;
             return addUnit.call(this, 'isObjVisible', [selector, expected]);
         }
 
         // public test
         this.hasJsVariable = function(variableName, expected){
+            expected = typeof expected !== 'boolean' ? true : expected;
             return addUnit.call(this, 'hasJsVariable', [variableName, expected]);
         }
 
@@ -451,17 +450,9 @@
     /**
      * TEST: contains
      */
-    $.fn.uat.unit.contains = function(selector){
+    $.fn.uat.unit.contains = function(selector, expected){
         var result = !!(getLastFoundObj() || $(getOptions().obj)).find(selector).length;
-        return {type: result ? 'success' : 'error', result: result};
-    }
-
-    /**
-     * TEST: notContains
-     */
-    $.fn.uat.unit.notContains = function(selector){
-        var result = !(getLastFoundObj() || $(getOptions().obj)).find(selector).length;
-        return {type: result ? 'success' : 'error', result: result};
+        return {type: result === expected ? 'success' : 'error', result: result};
     }
 
     /**
