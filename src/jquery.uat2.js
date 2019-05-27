@@ -341,8 +341,8 @@
         }
 
         // public test
-        this.hasJsVariable = function(variableName){
-            return addUnit.call(this, 'hasJsVariable', [variableName]);
+        this.hasJsVariable = function(variableName, expected){
+            return addUnit.call(this, 'hasJsVariable', [variableName, expected]);
         }
 
         // public test
@@ -502,9 +502,9 @@
     /**
      * TEST: hasJsVariable
      */
-    $.fn.uat.unit.hasJsVariable = function(variableName){
+    $.fn.uat.unit.hasJsVariable = function(variableName, expected){
         var result = typeof window[variableName] !== 'undefined';
-        return {type: result ? 'success' : 'error', result: result ? window[variableName].toString() : false};
+        return {type: result === expected ? 'success' : 'error', result: result ? window[variableName].toString() : null};
     }
 
     /**
