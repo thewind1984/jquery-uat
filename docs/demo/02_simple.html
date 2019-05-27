@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <meta name="description" content="user-acceptance tests with jquery.uat plugin for simplest checks">
 
-    <script src="../js/jquery-3.3.1.min.js"></script>
-    <script src="../js/jquery.uat-2.0.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+    <script src="../js/jquery.uat2.js"></script>
 
     <script>
         var uatObj;
@@ -17,7 +17,7 @@
 
             uatObj
                 .contains('#ex')
-                .notContains('.failed')
+                .contains('.failed', false)
                 .findObj('.select')
                 .contains('[value="12"]')
                 .contains('[value="23"]')
