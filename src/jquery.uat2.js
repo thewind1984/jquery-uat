@@ -31,7 +31,7 @@
             logScope = [],
             started = false,
             isRedirected = false,
-            redirectionLabel = null,
+            redirectionDescription = null,
             isPaused = false,
             testInProcess = false,
             isLastTest = false,
@@ -83,7 +83,7 @@
                             switch (receivedResult) {
                                 case 'redirect':
                                     isRedirected = true;
-                                    redirectionLabel = data.test.args[1];
+                                    redirectionDescription = data.test.args[1];
                                     $.fn.uat.log.call(this, null, '--- redirection...');
                                     break;
                             }
@@ -200,15 +200,15 @@
             return this;
         }
 
-        function addUnit(testName, args){
-            return addIteration.call(this, 'unit', testName, args);
+        function addUnit(testName, args, label){
+            return addIteration.call(this, 'unit', testName, args, label);
         }
 
-        function addStep(stepName, args){
-            return addIteration.call(this, 'step', stepName, args);
+        function addStep(stepName, args, label){
+            return addIteration.call(this, 'step', stepName, args, label);
         }
 
-        function addIteration(type, name, args){
+        function addIteration(type, name, args, label){
             tests.push({
                 type: type,
                 name: name,
@@ -217,13 +217,14 @@
                 date: null,
                 result: null,
                 page: tempLocation,
+                label: typeof label === 'undefined' ? null : label
             });
 
             if (currentTestName !== null) {
                 if (typeof testSets[currentTestName] === 'undefined') {
                     testSets[currentTestName] = {commited: false, tests: []};
                 }
-                testSets[currentTestName].tests.push({type: type, name: name, args: args});
+                testSets[currentTestName].tests.push({type: type, name: name, args: args, label: label});
             }
 
             return this;
@@ -251,7 +252,7 @@
                 if (isRedirected) {
                     isRedirected = false;
                 }
-                $.fn.uat.log.call(this, 'page', '--- page', '<a href="' + test.page + '" target="_blank" style="color:#fff;">' + test.page + '</a>' + (redirectionLabel !== null ? ' [' + redirectionLabel + ']' : ''));
+                $.fn.uat.log.call(this, 'page', '--- page', '<a href="' + test.page + '" target="_blank" style="color:#fff;">' + test.page + '</a>' + (redirectionDescription !== null ? ' [' + redirectionDescription + ']' : ''));
                 $('[data-current_page]').attr('href', test.page).text(test.page);
                 tempLocation = test.page;
             }
@@ -329,106 +330,125 @@
         }
 
         // public action
-        this.involveTestSet = function(testName){
+        this.involveTestSet = function(testName, overwrittenParams){
             if (testName !== null && typeof testSets[testName] !== 'undefined' && testSets[testName].commited === true && testSets[testName].tests.length > 0) {
+                overwrittenParams = typeof overwrittenParams !== 'object' ? {} : overwrittenParams;
                 for (var t = 0; t < testSets[testName].tests.length; t++) {
-                    var test = testSets[testName].tests[t];
-                    addIteration(test.type, test.name, test.args);
+                    var test = testSets[testName].tests[t],
+                        args = test.args;
+
+                    if (test.label !== null && typeof overwrittenParams[test.label] !== 'undefined') {
+                        args = overwrittenParams[test.label];
+                    }
+
+                    addIteration(test.type, test.name, args, test.label);
                 }
             }
             return this;
         }
 
         // public test
-        this.contains = function(selector, expected){
+        this.contains = function(selector, expected, label){
             expected = typeof expected !== 'boolean' ? true : expected;
-            return addUnit.call(this, 'contains', [selector, expected]);
+            return addUnit.call(this, 'contains', [selector, expected], label);
         }
 
         // public test
-        this.hasCookie = function(cookieName, expected){
+        this.sourceContains = function(selector, content, expected, label){
             expected = typeof expected !== 'boolean' ? true : expected;
-            return addUnit.call(this, 'hasCookie', [cookieName, expected]);
+            return addUnit.call(this, 'sourceContains', [selector, content, expected], label);
         }
 
         // public test
-        this.isObjVisible = function(selector, expected){
+        this.hasCookie = function(cookieName, expected, label){
             expected = typeof expected !== 'boolean' ? true : expected;
-            return addUnit.call(this, 'isObjVisible', [selector, expected]);
+            return addUnit.call(this, 'hasCookie', [cookieName, expected], label);
         }
 
         // public test
-        this.hasJsVariable = function(variableName, expected){
+        this.cookieValue = function(cookieName, cookieValue, expected, label){
             expected = typeof expected !== 'boolean' ? true : expected;
-            return addUnit.call(this, 'hasJsVariable', [variableName, expected]);
+            return addUnit.call(this, 'cookieValue', [cookieName, cookieValue, expected], label);
         }
 
         // public test
-        this.valueEqualsTo = function(selector, value){
-            return addUnit.call(this, 'valueEqualsTo', [selector, value]);
+        this.isObjVisible = function(selector, expected, label){
+            expected = typeof expected !== 'boolean' ? true : expected;
+            return addUnit.call(this, 'isObjVisible', [selector, expected], label);
+        }
+
+        // public test
+        this.hasJsVariable = function(variableName, expected, label){
+            expected = typeof expected !== 'boolean' ? true : expected;
+            return addUnit.call(this, 'hasJsVariable', [variableName, expected], label);
+        }
+
+        // public test
+        this.valueEqualsTo = function(selector, value, label){
+            return addUnit.call(this, 'valueEqualsTo', [selector, value], label);
         }
 
         // public step
-        this.findObj = function(selector){
-            return addStep.call(this, 'findObj', [selector]);
+        this.findObj = function(selector, label){
+            return addStep.call(this, 'findObj', [selector], label);
         }
 
         // public step
-        this.resetObj = function(){
-            return addStep.call(this, 'resetObj', []);
+        this.resetObj = function(label){
+            return addStep.call(this, 'resetObj', [], label);
         }
 
         // public step
-        this.setCookie = function(cookieName, cookieValue){
-            return addStep.call(this, 'setCookie', [cookieName, cookieValue]);
+        this.setCookie = function(cookieName, cookieValue, label){
+            return addStep.call(this, 'setCookie', [cookieName, cookieValue], label);
         }
 
         // public step
-        this.removeCookie = function(cookieName){
-            return addStep.call(this, 'removeCookie', [cookieName]);
+        this.removeCookie = function(cookieName, label){
+            return addStep.call(this, 'removeCookie', [cookieName], label);
         }
 
         // public step
-        this.redirectTo = function(url, label){
+        this.redirectTo = function(url, description, label){
             url = $.trim(url);
-            var result = addStep.call(this, 'redirectTo', [url, typeof label === 'undefined' ? null : label]);
+            var result = addStep.call(this, 'redirectTo', [url, typeof description === 'undefined' ? null : description], label);
             tempLocation = url;
             return result;
         }
 
         // public step
-        this.formSubmit = function(selector){
-            return addStep.call(this, 'formSubmit', [selector]);
+        this.formSubmit = function(selector, description, label){
+            return addStep.call(this, 'formSubmit', [selector, typeof description === 'undefined' ? null : description], label);
         }
 
         // public step
-        this.clickBy = function(selector){
-            return addStep.call(this, 'clickBy', [selector]);
+        this.clickBy = function(selector, label){
+            return addStep.call(this, 'clickBy', [selector], label);
         }
 
         // public step
-        this.wait = function(ms){
-            return addStep.call(this, 'wait', [ms]);
+        this.wait = function(ms, label){
+            return addStep.call(this, 'wait', [ms], label);
         }
 
         // public step
-        this.waitFor = function(testName, selector, timeout){
+        this.waitFor = function(testName, selector, timeout, label){
 
         }
 
         // public step
-        this.fillIn = function(selector, value){
-            return addStep.call(this, 'fillIn', [selector, value]);
+        this.fillIn = function(selector, value, label){
+            return addStep.call(this, 'fillIn', [selector, value], label);
         }
 
         // public step
-        this.scrollToObj = function(selector, extra){
-            return addStep.call(this, 'scrollToObj', [selector, extra]);
+        this.scrollToObj = function(selector, extra, label){
+            return addStep.call(this, 'scrollToObj', [selector, extra], label);
         }
 
         // public step
-        this.appendTo = function(selector, content){
-            return addStep.call(this, 'appendTo', [selector, content]);
+        this.appendTo = function(selector, content, label){
+            return addStep.call(this, 'appendTo', [selector, content], label);
         }
 
         // run all steps
@@ -485,12 +505,29 @@
     }
 
     /**
+     * TEST: sourceContains
+     */
+    $.fn.uat.unit.sourceContains = function(selector, content, expected){
+        var result = ((new RegExp(content, 'gi')).test($(selector).html()));
+        return {type: result === expected ? 'success' : 'error', result: result};
+    }
+
+    /**
      * TEST: hasCookie
      */
     $.fn.uat.unit.hasCookie = function(cookieName, expected){
-        expected = typeof expected === 'undefined' ? true : expected;
         var result = new RegExp('(^|; )' + cookieName.toString() + '=([^;$]*)', 'gi').exec(document.cookie),
             status = expected === true ? (result !== null) : (result === null);
+        return {type: status ? 'success' : 'error', result: result !== null ? (result[2] !== '' ? result[2] : '[EMPTY VALUE]') : false};
+    }
+
+    /**
+     * TEST: cookieValue
+     */
+    $.fn.uat.unit.cookieValue = function(cookieName, cookieValue, expected){
+        var result = new RegExp('(^|; )' + cookieName.toString() + '=([^;$]*)', 'gi').exec(document.cookie),
+            actualValue = result !== null ? result[2].toString() : '',
+            status = expected === true ? actualValue === cookieValue.toString() : actualValue !== cookieValue.toString();
         return {type: status ? 'success' : 'error', result: result !== null ? (result[2] !== '' ? result[2] : '[EMPTY VALUE]') : false};
     }
 
@@ -652,7 +689,7 @@
     /**
      * STEP: redirectTo
      */
-    $.fn.uat.unit.redirectTo = function(url, label){
+    $.fn.uat.unit.redirectTo = function(url){
         setTimeout(function(){ location.href = url; }, 100);
         return {type: 'success', result: true, action: 'redirect'};
     }
