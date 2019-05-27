@@ -17,6 +17,7 @@
             timeout: 0,      // milliseconds
             output: defaultOutput,      // where to output results (console || window)
             debug: false,       // TODO: add output lines for debug
+            child: false
         }, typeof settings === 'object' ? settings : {});
 
         options.timeout = !isNaN(parseFloat(options.timeout)) && parseFloat(options.timeout) > 0 ? parseFloat(options.timeout) : 0;
@@ -39,7 +40,7 @@
             testSets = {};
 
         function init(){
-            $('body').html('<iframe id="source_site_iframe" sandbox="allow-same-origin allow-scripts" style="position:absolute;left:0;top:0;width:100%;height:100%;border:0;" src="' + location.href + '" onload="uatObj.frameLoaded();"></iframe><div id="iframe_loader" style="position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:2;display:flex;align-items:center;justify-content:center;font-size:50px;font-weight:bold;text-shadow:1px 1px 5px #fff;display:none;">Redirection...</div>');
+            $('body').html('<iframe id="source_site_iframe" style="position:absolute;left:0;top:0;width:100%;height:100%;border:0;" src="' + location.href + '" onload="uatObj.frameLoaded();"></iframe><div id="iframe_loader" style="position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:2;display:flex;align-items:center;justify-content:center;font-size:50px;font-weight:bold;text-shadow:1px 1px 5px #fff;display:none;">Redirection...</div>');
             $.fn.uat.view.call(this);
         }
 
@@ -288,8 +289,26 @@
         }
 
         function receiveTestResult(test, result){
-            $.fn.uat.log.call(this, result.type, test.name + ' test: ' + $.fn.uat.args.call(this, test.args), result.result, {'class': 'test-result-' + result.type});
+            $.fn.uat.log.call(this, result.type, test.name + ' test: ' + escapeHTML($.fn.uat.args.call(this, test.args)), result.result, {'class': 'test-result-' + result.type});
             return testFinished.call(this, test.type, result);
+        }
+
+        function escapeHTML(value){
+            var map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+
+            value = value.toString();
+
+            for (k in map) {
+                value = value.replace(new RegExp(k, 'gi'), map[k]);
+            }
+
+            return value;
         }
 
         // public action
@@ -378,6 +397,11 @@
         }
 
         // public step
+        this.formSubmit = function(selector){
+            return addStep.call(this, 'formSubmit', [selector]);
+        }
+
+        // public step
         this.clickBy = function(selector){
             return addStep.call(this, 'clickBy', [selector]);
         }
@@ -400,6 +424,11 @@
         // public step
         this.scrollToObj = function(selector, extra){
             return addStep.call(this, 'scrollToObj', [selector, extra]);
+        }
+
+        // public step
+        this.appendTo = function(selector, content){
+            return addStep.call(this, 'appendTo', [selector, content]);
         }
 
         // run all steps
@@ -433,7 +462,7 @@
         listeners();
 
         // run only in TOP level, not in frame
-        if (!isFrame) {
+        if (!isFrame && !getOptions().child) {
             init();
         }
 
@@ -589,6 +618,14 @@
     }
 
     /**
+     * STEP: appendTo
+     */
+    $.fn.uat.unit.appendTo = function(selector, content){
+        $(selector).append(content);
+        return {type: 'success', result: true};
+    }
+
+    /**
      * STEP: fillIn
      */
     $.fn.uat.unit.fillIn = function(selector, value){
@@ -617,6 +654,14 @@
      */
     $.fn.uat.unit.redirectTo = function(url, label){
         setTimeout(function(){ location.href = url; }, 100);
+        return {type: 'success', result: true, action: 'redirect'};
+    }
+
+    /**
+     * STEP: formSubmit
+     */
+    $.fn.uat.unit.formSubmit = function(selector){
+        $(selector).get(0).submit();
         return {type: 'success', result: true, action: 'redirect'};
     }
 
@@ -665,6 +710,9 @@
 
         function saveWindowState(){
             var mainDiv = $(selectors.window);
+            if (!mainDiv.length) {
+                return;
+            }
             mainDiv.css({
                 bottom: 'auto',
                 top: mainDiv.position().top + 'px'
@@ -684,8 +732,11 @@
         }
 
         function validateWindowState(){
-            var obj = $(selectors.window),
-                pos = obj.position(),
+            var obj = $(selectors.window);
+            if (!obj.length) {
+                return;
+            }
+            var pos = obj.position(),
                 leftMax = document.body.clientWidth - obj.outerWidth(),
                 topMax = document.body.clientHeight - obj.outerHeight();
             if (pos.left < 0) {
@@ -702,6 +753,9 @@
 
         function storeWindowState(){
             var _obj = $(selectors.window);
+            if (!_obj.length) {
+                return;
+            }
             $.fn.uat.storage.call(this, 'set', 'window.position.left', _obj.data('offset').left + 'px');
             $.fn.uat.storage.call(this, 'set', 'window.position.top', _obj.data('offset').top + 'px');
             $.fn.uat.storage.call(this, 'set', 'window.dimension.width', _obj.data('width') + 'px');
