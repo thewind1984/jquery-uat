@@ -1,9 +1,10 @@
 /**
  * @name jQuery.UAT v2
  * @summary Plugin for UAT (User Acceptance Testing) of pages
- * @author thewind <thewind05@gmail.com>
- * @version 2.0
- * @pubdate: 2018-06-19
+ * @author Dmitriy Ignatiev <thewind05@gmail.com>
+ * @version 2.1.0
+ * @pubdate 2018-06-19
+ * @updated 2019-05-24
  */
 (function($){
     $.fn.uat = function(settings){
@@ -16,25 +17,39 @@
             timeout: 0,      // milliseconds
             output: defaultOutput,      // where to output results (console || window)
             debug: false,       // TODO: add output lines for debug
-        }, typeof settings == 'object' ? settings : {});
-        
+        }, typeof settings === 'object' ? settings : {});
+
         options.timeout = !isNaN(parseFloat(options.timeout)) && parseFloat(options.timeout) > 0 ? parseFloat(options.timeout) : 0;
-        options.output = $.inArray(options.output, ['console', 'window']) == -1 ? defaultOutput : options.output;
-        
-        var isFrame = window.top != window.self,
+        options.output = $.inArray(options.output, ['console', 'window']) === -1 ? defaultOutput : options.output;
+
+        var isFrame = window.top !== window.self,
             tests = [],
             lastFoundObj = false,
             tempLocation = location.href,
+            lastTestPage = null,
             logScope = [],
             started = false,
             isRedirected = false,
+            redirectionLabel = null,
             isPaused = false,
             testInProcess = false,
-            isLastTest = false;
-        
+            isLastTest = false,
+            frameLoadedTimes = 0,
+            currentTestName = null,
+            testSets = {};
+
         function init(){
-            $('body').html('<iframe id="source_site_iframe" style="position:absolute;left:0;top:0;width:100%;height:100%;border:0;" src="' + location.href + '"></iframe>');
+            $('body').html('<iframe id="source_site_iframe" sandbox="allow-same-origin allow-scripts" style="position:absolute;left:0;top:0;width:100%;height:100%;border:0;" src="' + location.href + '" onload="uatObj.frameLoaded();"></iframe><div id="iframe_loader" style="position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:2;display:flex;align-items:center;justify-content:center;font-size:50px;font-weight:bold;text-shadow:1px 1px 5px #fff;display:none;">Redirection...</div>');
             $.fn.uat.view.call(this);
+        }
+
+        this.frameLoaded = function () {
+            if (frameLoadedTimes > 0) {
+                $('#source_site_iframe').css('filter', 'none');
+                $('#iframe_loader').hide();
+                $('body').trigger('uatqueue');
+            }
+            frameLoadedTimes++;
         }
 
         function listeners(){
@@ -45,13 +60,17 @@
                     command = data.command || null;
 
                 switch (command) {
+                    // command from parent to iframe with test data
+                    // iframe runs the test and sends the result back with `receiveTestResult` command
                     case 'runTest':
                         var testResult = runTest(data.test);
-                        parent.postMessage(JSON.stringify({command: 'receiveTestResult', test: data.test, result: testResult}), e.origin);
+                        parent.postMessage(JSON.stringify({command: 'receiveTestResult', test: data.test, result: testResult, location: data.test.name === 'redirectTo' ? data.test.args[0] : data.test.page}), e.origin);
                         break;
 
+                    // command received by parent with the result of test
                     case 'receiveTestResult':
                         var receivedResult = receiveTestResult(data.test, data.result);
+                        lastTestPage = data.location;
                         testInProcess = false;
                         if (isLastTest) {
                             resultation();
@@ -63,15 +82,10 @@
                             switch (receivedResult) {
                                 case 'redirect':
                                     isRedirected = true;
+                                    redirectionLabel = data.test.args[1];
+                                    $.fn.uat.log.call(this, null, '--- redirection...');
                                     break;
                             }
-                        }
-                        break;
-
-                    case 'frameReady':
-                        if (isRedirected) {
-                            isRedirected = false;
-                            run();
                         }
                         break;
                 }
@@ -85,7 +99,7 @@
         getOptions = function(){
             return options;
         }
-        
+
         getLogScope = function(){
             return logScope;
         }
@@ -95,7 +109,7 @@
         }
 
         getLastFoundObj = function(){
-            return lastFoundObj;// !== false && $(lastFoundObj).length ? $(lastFoundObj) : $(getOptions().obj);
+            return lastFoundObj;
         }
 
         setLastFoundObj = function(obj){
@@ -130,6 +144,17 @@
             while(curDate-date < ms);
         }
 
+        setCounter = function(type, value) {
+            var counterObj = $('[data-tests="' + type + '"] b');
+            counterObj.text(value);
+        }
+
+        addCounter = function(type, add) {
+            var counterObj = $('[data-tests="' + type + '"] b'),
+                counterValue = parseInt(counterObj.text()) + parseInt(add);
+            setCounter(type, counterValue);
+        }
+
         // visible from this and from childs
         testFinished = function(type, resultData){
             var testNum = $.fn.uat.storage.call(this, 'get', 'testNum');
@@ -137,6 +162,9 @@
             tests[testNum].passed = 1;
             $.fn.uat.storage.call(this, 'set', 'tests', tests);
             $.fn.uat.storage.call(this, 'set', 'testNum', testNum + 1);
+
+            addCounter(resultData.type, 1);
+
             if (options.timeout) {
                 $.fn.uat.log.call(this, null, '--- timeout', options.timeout + 'sec');
                 sleep(options.timeout * 1000)
@@ -147,8 +175,8 @@
         resultation = function(){
             var types = {};
             $(tests).each(function(){
-                if (this.passed == 1) {
-                    if (typeof types[this.result.type] == 'undefined') {
+                if (this.passed === 1) {
+                    if (typeof types[this.result.type] === 'undefined') {
                         types[this.result.type] = 0;
                     }
                     types[this.result.type]++;
@@ -189,6 +217,14 @@
                 result: null,
                 page: tempLocation,
             });
+
+            if (currentTestName !== null) {
+                if (typeof testSets[currentTestName] === 'undefined') {
+                    testSets[currentTestName] = {commited: false, tests: []};
+                }
+                testSets[currentTestName].tests.push({type: type, name: name, args: args});
+            }
+
             return this;
         }
 
@@ -207,12 +243,15 @@
                 });
             }
             var test = tests[testNum];
-            if (test.page != tempLocation || !started) {
+            if (test.page !== tempLocation || !started || isRedirected) {
                 if (!started) {
-                    var resultBlockId = $.fn.uat.view.call(this, 'getSelector', ['result']);
-                    $(resultBlockId).find('[id^="uat_result_item_"]').remove();
+                    prepareConsole();
                 }
-                $.fn.uat.log.call(this, 'page', '--- page', test.page);
+                if (isRedirected) {
+                    isRedirected = false;
+                }
+                $.fn.uat.log.call(this, 'page', '--- page', '<a href="' + test.page + '" target="_blank" style="color:#fff;">' + test.page + '</a>' + (redirectionLabel !== null ? ' [' + redirectionLabel + ']' : ''));
+                $('[data-current_page]').attr('href', test.page).text(test.page);
                 tempLocation = test.page;
             }
             if (!started) {
@@ -220,22 +259,65 @@
             }
             test.date = new Date();
 
+            if (test.name === 'redirectTo') {
+                $('#source_site_iframe').css('filter', 'blur(5px)');
+                $('#iframe_loader').css('display', 'flex');
+            }
+
             // send test to remote page
-            $('#source_site_iframe').get(0).contentWindow.postMessage(JSON.stringify({command: 'runTest', test: test}), location.href);
+            $('#source_site_iframe').get(0).contentWindow.postMessage(JSON.stringify({command: 'runTest', test: test}), lastTestPage !== null ? lastTestPage : test.page);
         }
 
         function runTest(test){
             var testResult = $.fn.uat[test.type].call(this, test.name, test.args);
             if (test.type === 'unit' && lastFoundObj !== false) {
-                // $.fn.uat.log.call(this, 'info', 'break branch to root', true);
-                lastFoundObj = false;
+                // do not reset lastFoundObj every time
+                // do it manually through test.resetObj
+                // lastFoundObj = false;
             }
             return testResult;
         }
 
+        prepareConsole = function(force){
+            force = typeof force !== 'boolean' ? false : force;
+            var resultBlockId = $.fn.uat.view.call(this, 'getSelector', ['result']);
+            $(resultBlockId).find('[data-service]').remove();
+            if ($('[data-settings_items="whether_clean_console"]').prop('checked') === false || force === true) {
+                $(resultBlockId).find('[id^="uat_result_item_"]').remove();
+            }
+        }
+
         function receiveTestResult(test, result){
-            $.fn.uat.log.call(this, result.type, test.name + ' test: ' + $.fn.uat.args.call(this, test.args), result.result);
+            $.fn.uat.log.call(this, result.type, test.name + ' test: ' + $.fn.uat.args.call(this, test.args), result.result, {'class': 'test-result-' + result.type});
             return testFinished.call(this, test.type, result);
+        }
+
+        // public action
+        this.beginTestSet = function(testName){
+            if (currentTestName === null && (typeof testSets[testName] === 'undefined' || testSets[testName].commited === false)) {
+                currentTestName = testName;
+            }
+            return this;
+        }
+
+        // public action
+        this.commitTestSet = function(){
+            if (currentTestName !== null && typeof testSets[currentTestName] !== 'undefined' && testSets[currentTestName].commited === false) {
+                testSets[currentTestName].commited = true;
+            }
+            currentTestName = null;
+            return this;
+        }
+
+        // public action
+        this.involveTestSet = function(testName){
+            if (testName !== null && typeof testSets[testName] !== 'undefined' && testSets[testName].commited === true && testSets[testName].tests.length > 0) {
+                for (var t = 0; t < testSets[testName].tests.length; t++) {
+                    var test = testSets[testName].tests[t];
+                    addIteration(test.type, test.name, test.args);
+                }
+            }
+            return this;
         }
 
         // public test
@@ -249,13 +331,13 @@
         }
 
         // public test
-        this.hasCookie = function(cookieName){
-            return addUnit.call(this, 'hasCookie', [cookieName]);
+        this.hasCookie = function(cookieName, expected){
+            return addUnit.call(this, 'hasCookie', [cookieName, expected]);
         }
 
         // public test
-        this.isObjVisible = function(selector){
-            return addUnit.call(this, 'isObjVisible', [selector]);
+        this.isObjVisible = function(selector, expected){
+            return addUnit.call(this, 'isObjVisible', [selector, expected]);
         }
 
         // public test
@@ -274,6 +356,11 @@
         }
 
         // public step
+        this.resetObj = function(){
+            return addStep.call(this, 'resetObj', []);
+        }
+
+        // public step
         this.setCookie = function(cookieName, cookieValue){
             return addStep.call(this, 'setCookie', [cookieName, cookieValue]);
         }
@@ -284,13 +371,11 @@
         }
 
         // public step
-        this.redirectTo = function(url){
+        this.redirectTo = function(url, label){
             url = $.trim(url);
-            if (url !== tempLocation) {
-                var result = addStep.call(this, 'redirectTo', [url]);
-                tempLocation = url;
-                return result;
-            }
+            var result = addStep.call(this, 'redirectTo', [url, typeof label === 'undefined' ? null : label]);
+            tempLocation = url;
+            return result;
         }
 
         // public step
@@ -310,7 +395,7 @@
 
         // public step
         this.fillIn = function(selector, value){
-
+            return addStep.call(this, 'fillIn', [selector, value]);
         }
 
         // public step
@@ -321,14 +406,14 @@
         // run all steps
         this.finish = function(){
             $.fn.uat.storage.call(this, 'set', 'tests', tests);
-            $.fn.uat.log.call(this, null, '--- detect tests...');
+            $.fn.uat.log.call(this, null, '--- detect tests...', '', {'data-service': 1});
             if (tests.length) {
-                $.fn.uat.log.call(this, null, '--- tests found', tests.length);
-                $.fn.uat.log.call(this, null, '--- generating JSON object...');
+                $.fn.uat.log.call(this, null, '--- tests found', tests.length, {'data-service': 1});
+                $.fn.uat.log.call(this, null, '--- generating JSON object...', '', {'data-service': 1});
                 $.fn.uat.json.call(this, 'prepare');
-                $.fn.uat.log.call(this, null, '--- JSON object is ready');
+                $.fn.uat.log.call(this, null, '--- JSON object is ready', '', {'data-service': 1});
             } else {
-                $.fn.uat.log.call(this, null, '--- no tests found');
+                $.fn.uat.log.call(this, null, '--- no tests found', '', {'data-service': 1});
             }
         }
 
@@ -336,18 +421,21 @@
             if (isPaused) {
                 return;
             }
+            if (!started) {
+                setCounter('success', 0);
+                setCounter('error', 0);
+                addCounter('iterations', 1);
+            }
             setTimeout(function(){
                 $('body').trigger('uatqueue');
             }, started ? options.timeout * 1000 : 50);
         }
-        
+
         listeners();
-        
+
         // run only in TOP level, not in frame
         if (!isFrame) {
             init();
-        } else {
-            parent.postMessage(JSON.stringify({command: 'frameReady'}), location.href);
         }
 
         return this;
@@ -357,17 +445,14 @@
      * Unit test constructor
      */
     $.fn.uat.unit = function(testName, testArgs){
-        var resultData = $.fn.uat.unit[testName].apply(this, testArgs);
-        return resultData;
-        // $.fn.uat.log.call(this, resultData.type, testName + ' test: ' + $.fn.uat.args.call(this, testArgs), resultData.result);
-        // return testFinished.call(this, 'unit', resultData);
+        return $.fn.uat.unit[testName].apply(this, testArgs);
     }
 
     /**
      * TEST: contains
      */
     $.fn.uat.unit.contains = function(selector){
-        var result = (getLastFoundObj() || $(getOptions().obj)).find(selector).length ? true : false;
+        var result = !!(getLastFoundObj() || $(getOptions().obj)).find(selector).length;
         return {type: result ? 'success' : 'error', result: result};
     }
 
@@ -375,38 +460,50 @@
      * TEST: notContains
      */
     $.fn.uat.unit.notContains = function(selector){
-        var result = !(getLastFoundObj() || $(getOptions().obj)).find(selector).length ? true : false;
+        var result = !(getLastFoundObj() || $(getOptions().obj)).find(selector).length;
         return {type: result ? 'success' : 'error', result: result};
     }
 
     /**
      * TEST: hasCookie
      */
-    $.fn.uat.unit.hasCookie = function(cookieName){
-        var result = new RegExp('(^|; )' + cookieName.toString() + '=([^;$]*)', 'gi').exec(document.cookie);
-        return {type: result != null ? 'success' : 'error', result: result != null ? (result[2] !== '' ? result[2] : '[EMPTY VALUE]') : false};
+    $.fn.uat.unit.hasCookie = function(cookieName, expected){
+        expected = typeof expected === 'undefined' ? true : expected;
+        var result = new RegExp('(^|; )' + cookieName.toString() + '=([^;$]*)', 'gi').exec(document.cookie),
+            status = expected === true ? (result !== null) : (result === null);
+        return {type: status ? 'success' : 'error', result: result !== null ? (result[2] !== '' ? result[2] : '[EMPTY VALUE]') : false};
     }
 
     /**
      * TEST: isObjVisible
      * TODO: improve method, if object is inherit into visible, but scrollable object (parent is visible, but child - not)
      */
-    $.fn.uat.unit.isObjVisible = function(selector){
-        var obj = $(selector),
-            objTop = obj.length ? obj.offset().top : 0,
-            objHeight = obj.outerHeight(),
-            objTopHeight = objTop + objHeight,
-            fullHeight = $(window).outerHeight() + $(window).scrollTop(),
-            result = obj.length && objTop < fullHeight,
-            visibilityPercentage = !result ? 0 : (objTopHeight <= fullHeight ? 100 : (objHeight - (objTopHeight - fullHeight)) / objHeight * 100);
-        return {type: result ? 'success' : 'error', result: (result ? 'true' : 'false') + ' (' + visibilityPercentage + '%)'};
+    $.fn.uat.unit.isObjVisible = function(selector, expected){
+        var obj = $(selector);
+
+        if (
+            (obj.css('display') !== 'undefined' && obj.css('display') === 'none')
+            ||
+            (obj.css('visibility') !== 'undefined' && obj.css('visibility') === 'hidden')
+        ) {
+            var result = expected === false;
+            var visibilityPercentage = 0;
+        } else {
+            var objTop = obj.length ? obj.offset().top : 0,
+                objHeight = obj.outerHeight(),
+                objTopHeight = objTop + objHeight,
+                fullHeight = $(window).outerHeight() + $(window).scrollTop(),
+                result = obj.length && objTop < fullHeight,
+                visibilityPercentage = result !== expected ? 0 : (objTopHeight <= fullHeight ? 100 : (objHeight - (objTopHeight - fullHeight)) / objHeight * 100);
+        }
+        return {type: result === expected ? 'success' : 'error', result: (result === expected ? 'true' : 'false') + ' (' + visibilityPercentage + '%)'};
     }
 
     /**
      * TEST: hasJsVariable
      */
     $.fn.uat.unit.hasJsVariable = function(variableName){
-        var result = typeof window[variableName] != 'undefined';
+        var result = typeof window[variableName] !== 'undefined';
         return {type: result ? 'success' : 'error', result: result ? window[variableName].toString() : false};
     }
 
@@ -426,7 +523,7 @@
                     objType = $(this).attr('type') || null;
                 switch (tagName) {
                     case 'input':
-                        if ($.inArray(objType, ['checkbox', 'radio']) != -1) {
+                        if ($.inArray(objType, ['checkbox', 'radio']) !== -1) {
                             $($(this).filter(':selected')).each(function(){
                                 values.push(this.value);
                             });
@@ -444,7 +541,7 @@
                         break;
                 }
             });
-            var result = $.inArray(value, values) != -1;
+            var result = $.inArray(value, values) !== -1;
             return {type: result ? 'success' : 'error', result: result};
         }
         return {type: 'error', result: 'object not found'};
@@ -454,10 +551,7 @@
      * Move testContainer to another step (another object, redirect to page)
      */
     $.fn.uat.step = function(testName, testArgs){
-        var resultData = $.fn.uat.unit[testName].apply(this, testArgs);
-        return resultData;
-        // $.fn.uat.log.call(this, resultData.type, testName + ' test: ' + $.fn.uat.args.call(this, testArgs), resultData.result);
-        // return testFinished.call(this, 'step', resultData);
+        return $.fn.uat.unit[testName].apply(this, testArgs);
     }
 
     /**
@@ -468,6 +562,14 @@
         if (!getLastFoundObj().length) {
             return {type: 'warning', result: false};
         }
+        return {type: 'success', result: true};
+    }
+
+    /**
+     * STEP: resetObj
+     */
+    $.fn.uat.unit.resetObj = function(){
+        setLastFoundObj(false);
         return {type: 'success', result: true};
     }
 
@@ -496,6 +598,14 @@
     }
 
     /**
+     * STEP: fillIn
+     */
+    $.fn.uat.unit.fillIn = function(selector, value){
+        $(selector).val(value).trigger('change');
+        return {type: 'success', result: true};
+    }
+
+    /**
      * STEP: clickBy
      */
     $.fn.uat.unit.clickBy = function(selector){
@@ -514,7 +624,7 @@
     /**
      * STEP: redirectTo
      */
-    $.fn.uat.unit.redirectTo = function(url){
+    $.fn.uat.unit.redirectTo = function(url, label){
         setTimeout(function(){ location.href = url; }, 100);
         return {type: 'success', result: true, action: 'redirect'};
     }
@@ -526,7 +636,7 @@
         });
         return argsList.join(', ');
     }
-    
+
     $.fn.uat.view = function(method, args){
         var selectors = {
             window: '#uat_window',
@@ -536,7 +646,7 @@
             result: '#uat_result',
             mouseMover: '#uat_mouse_mover',
             mouseResizer: '#uat_mouse_resize',
-            jsonArea: '#uat_json_area',
+            jsonArea: '#uat_json_area'
         }
         var defaultOpacity = .3;
         var that = this;
@@ -553,14 +663,15 @@
         var
             unSelectableCSS = {'-moz-user-select': '-moz-none', '-khtml-user-select': 'none', '-webkit-user-select': 'none', '-ms-user-select': 'none', 'user-select': 'none'},
             blockCSS = {border: '1px solid #333', borderRadius: '4px', padding: '10px'},
-            flexCSS = {display: 'flex', flexDirection: 'row'},
+            flexCSS = {display: 'flex', flexDirection: 'row', boxSizing: 'border-box'},
             flexColumnCSS = {flexDirection: 'column'},
             scrollableCSS = {overflow: 'auto', overflowX: 'inherit'},
             tabCSS = {borderBottomLeftRadius: 0, borderBottomRightRadius: 0, padding: '3px 6px 8px', cursor: 'pointer', position: 'relative', top: '1px', marginTop: 0, borderLeftWidth: 0, fontSize: '11px', lineHeight: '100%', zIndex: 0},
             tabActiveCSS = {borderBottomColor: '#efefef', zIndex: 2, top: 0, marginTop: '-2px', paddingTop: '6px', paddingBottom: '13px'},
             tabFirstCSS = {borderLeftWidth: '1px'},
-            buttonCSS = {cursor: 'pointer', background: '#aaa', color: '#fff', fontWeight: 'normal', padding: '2px 5px', borderRadius: '4px'};
-        
+            buttonCSS = {cursor: 'pointer', background: '#aaa', color: '#fff', fontWeight: 'normal', padding: '2px 5px', borderRadius: '4px'},
+            labelCss = {cursor: 'pointer', background: '#eee', color: '#000', borderRadius: '4px', padding: '2px 5px', position: 'relative', top: '-1px', marginLeft: '3px', textDecoration: 'none', outline: 'none', whiteSpace: 'nowrap'};
+
         function saveWindowState(){
             var mainDiv = $(selectors.window);
             mainDiv.css({
@@ -574,13 +685,13 @@
                 height: mainDiv.outerHeight()
             });
         }
-        
+
         function restate(){
             $(selectors.window).css(initialState);
             saveWindowState.call(this);
             $.fn.uat.storage.call(this, 'set', 'window', null);
         }
-        
+
         function validateWindowState(){
             var obj = $(selectors.window),
                 pos = obj.position(),
@@ -597,7 +708,7 @@
                 obj.css('top', topMax);
             }
         }
-        
+
         function storeWindowState(){
             var _obj = $(selectors.window);
             $.fn.uat.storage.call(this, 'set', 'window.position.left', _obj.data('offset').left + 'px');
@@ -640,6 +751,7 @@
                         minHeight: '100px',
                         minWidth: '522px',
                         transition: 'opacity .3s',
+                        zIndex: '3'
                     }))
                     .css(typeof windowTop === 'undefined' ? 'bottom' : 'top', windowTop || initialState.bottom)
                     .appendTo('body');
@@ -648,7 +760,7 @@
 
                 var moverDiv = $('<div>')
                     .attr({id: selectors.mouseMover.replace('#', ''), title: 'Move UAT window by moving this bar', 'data-obj': 'mover'})
-                    .css($.extend({}, blockCSS, {padding: 0, position: 'absolute', left: '2px', top: '2px', width: 'calc(100% - 4px)', height: '0', borderWidth: '3px', background: '#333', cursor: 'move'}))
+                    .css($.extend({}, blockCSS, {padding: 0, position: 'absolute', left: '2px', top: '2px', width: 'calc(100% - 4px)', height: '0', borderWidth: '3px', background: '#333', cursor: 'move', boxSizing: 'border-box'}))
                     .appendTo(mainDiv);
 
                 var resizerDiv = $('<div>')
@@ -658,12 +770,16 @@
 
                 var testDiv = $('<div>')
                     .attr({id: selectors.tests.replace('#', '')})
-                    .css($.extend({}, flexCSS, flexColumnCSS, {width: '100%', marginRight: '10px', zIndex: 1}))
+                    .css($.extend({}, flexCSS, flexColumnCSS, {width: '100%', paddingRight: '10px', zIndex: 1, maxWidth: 'calc(100% - 300px)'}))
                     .appendTo(mainDiv);
+
+                var rowDiv = $('<div>')
+                    .css($.extend({}, flexCSS, {justifyContent: 'space-between'}))
+                    .appendTo(testDiv);
 
                 var tabsDiv = $('<div>')
                     .css($.extend({}, flexCSS, {minHeight: '18px', height: '18px'}))
-                    .appendTo(testDiv);
+                    .appendTo(rowDiv);
 
                 var tabConsoleDiv = $('<div>')
                     .attr('data-tab', selectors.result)
@@ -676,6 +792,34 @@
                     .css($.extend({}, blockCSS, tabCSS))
                     .text('Setup')
                     .appendTo(tabsDiv);
+
+                var statsDiv = $('<div>')
+                    .css($.extend({}, flexCSS, {justifyContent: 'flex-end'}))
+                    .appendTo(rowDiv);
+
+                var currentPageDiv = $('<a data-current_page>')
+                    .css($.extend({}, labelCss, {textDecoration: 'underline', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '60%', justifyContent: 'flex-end'}))
+                    .attr({href: '#', target: '_blank', title: 'Current page, where tests are run'})
+                    .text('')
+                    .appendTo(statsDiv);
+
+                var statsSuccessDiv = $('<a data-tests="success">')
+                    .css($.extend({}, labelCss, {background: 'green', color: '#fff'}))
+                    .html('<span>Passed:</span> <b>0</b>')
+                    .attr('title', 'Click to see only passed tests')
+                    .appendTo(statsDiv);
+
+                var statsFailedDiv = $('<a data-tests="error">')
+                    .css($.extend({}, labelCss, {background: 'pink', color: '#cc0000'}))
+                    .html('<span>Failed:</span> <b>0</b>')
+                    .attr('title', 'Click to see only failed tests')
+                    .appendTo(statsDiv);
+
+                var statsIterationsDiv = $('<div data-tests="iterations">')
+                    .css($.extend({}, labelCss, {background: '#aaa', color: '#000'}))
+                    .html('<span>/</span> <b>0</b>')
+                    .attr('title', 'Count of tests cycles')
+                    .appendTo(statsDiv);
 
                 var testConsoleDiv = $('<div>')
                     .attr({id: selectors.result.replace('#', ''), 'data-tab-content': ''})
@@ -693,32 +837,41 @@
                     .css($.extend({}, blockCSS, {background: '#fff', height: '80px', minHeight: '60px', width: '100%', maxWidth: '100%', minWidth: '100%', outline: 'none', padding: 0, margin: 0, fontSize: '11px', lineHeight: '100%'}))
                     .appendTo(testCreateDiv);
 
+                var settingsArea = $('<div>')
+                    .css({marginTop: '10px', borderTop: '1px solid #000', paddingTop: '10px'})
+                    .appendTo(testCreateDiv);
+
+                var whetherCleanConsoleBetweenIterations = $('<label>')
+                    .html('<input type="checkbox" data-settings_items="whether_clean_console" style="vertical-align:middle;" /> Do not clean console before new iteration of tests')
+                    .appendTo(settingsArea);
+
                 var helpDiv = $('<div>')
                     .attr({id: selectors.help.replace('#', '')})
-                    .css($.extend({}, blockCSS, {width: '100%', maxWidth: '300px'}, scrollableCSS))
+                    .css($.extend({}, blockCSS, {width: '100%', maxWidth: '300px', minWidth: '300px'}, scrollableCSS))
                     .append('<div style="margin-bottom:10px;"><div style="float:right;"><b data-uat_keycode="U">Ctrl + Alt + U</b></div><div>Show / hide UAT window</div><div style="font-size:11px;margin-top:4px;">If init option <i>output</i> equals to <i>window</i>, it will be showen automatically.<div></div>')
                     .append('<div style="margin-bottom:10px;"><div style="float:right;"><b data-uat_keycode="R">Ctrl + Alt + R</b></div><div>Restore UAT window to initial state</div><div style="font-size:11px;margin-top:4px;">Full width, sticked to bottom of the window</div></div>')
                     .append('<div style="margin-bottom:10px;"><div style="float:right;"><b data-uat_keycode="G">Ctrl + Alt + G</b></div><div>Start tests</div></div>')
                     .append('<div style="margin-bottom:10px;"><div style="float:right;"><b data-uat_keycode="P">Ctrl + Alt + P</b></div><div>Pause / resume tests</div></div>')
                     .append('<div style="margin-bottom:10px;"><div style="float:right;"><b data-uat_keycode="S">Ctrl + Alt + S</b></div><div>Stop tests</div></div>')
+                    .append('<div style="margin-bottom:10px;"><div style="float:right;"><b data-uat_keycode="C">Ctrl + Alt + C</b></div><div>Clean console</div></div>')
                     .appendTo(mainDiv);
-                
+
                 helpDiv.find('b').css(buttonCSS);
 
                 this.showResults('window');
             }
         }
-        
+
         this.CtrlAltU = function(e){
             e.preventDefault();
             draw.call(that);
         }
-        
+
         this.CtrlAltR = function(e){
             e.preventDefault();
             restate.call(that);
         }
-        
+
         this.CtrlAltS = function(e){
             e.preventDefault();
             if (getIsPaused()) {
@@ -727,7 +880,7 @@
                 finishAfterCurrent();
             }
         }
-        
+
         this.CtrlAltG = function(e){
             e.preventDefault();
             if (getIsPaused()) {
@@ -736,7 +889,7 @@
             }
             run();
         }
-        
+
         this.CtrlAltP = function(e){
             e.preventDefault();
             if (!isStarted()) {
@@ -748,6 +901,11 @@
             }
         }
 
+        this.CtrlAltC = function(e){
+            e.preventDefault();
+            prepareConsole(true);
+        }
+
         function keyboardListener(){
             $('body')
                 .on('mouseover touchstart', selectors.window, function(){ $(this).css('opacity', 1); })
@@ -755,8 +913,8 @@
                 .on('mousedown touchstart', selectors.mouseMover + ',' + selectors.mouseResizer, function(e){
                     that.mouseIsDown = true;
                     that.mouseObj = $(this);
-                    that.mousePosition.x = e.type == 'mousedown' ? e.clientX : e.touches[0].clientX;
-                    that.mousePosition.y = e.type == 'mousedown' ? e.clientY : e.touches[0].clientY;
+                    that.mousePosition.x = e.type === 'mousedown' ? e.clientX : e.touches[0].clientX;
+                    that.mousePosition.y = e.type === 'mousedown' ? e.clientY : e.touches[0].clientY;
                     $(this).data('border', $(this).css('border-color'));
                     $(this).css('border-color', 'red');
                 })
@@ -779,6 +937,16 @@
                     //var functionTemp = new Function(functionName);
                     //functionTemp(e);
                     //$.fn.uat.view.call(that, functionName, e);
+                })
+                .on('click', '[data-tests]', function(e){
+                    e.preventDefault();
+                    $('#test_result_selection').remove();
+                    if ($(this).hasClass('clicked')) {
+                        $(this).removeClass('clicked').siblings('[data-tests]').css('opacity', '1');
+                    } else {
+                        $('body').append('<style id="test_result_selection">[class^="test-result-"]{display:none;}.test-result-'+$(this).data('tests')+'{display:block;}</style>');
+                        $(this).addClass('clicked').css('opacity', '1').siblings('[data-tests]').removeClass('clicked').css('opacity', '.5');
+                    }
                 });
 
             $(window)
@@ -803,6 +971,9 @@
                         case 80:        // P    // pause
                             this.CtrlAltP(e);
                             break;
+                        case 67:        // C    // clean console
+                            this.CtrlAltC(e);
+                            break;
                     }
                 })
                 .on('resize', function(e){
@@ -818,12 +989,12 @@
                 })
                 .on('mousemove touchmove', function(e){
                     if (that.mouseIsDown) {
-                        var x = e.type == 'mousemove' ? e.clientX : e.changedTouches[0].clientX,
-                            y = e.type == 'mousemove' ? e.clientY : e.changedTouches[0].clientY,
+                        var x = e.type === 'mousemove' ? e.clientX : e.changedTouches[0].clientX,
+                            y = e.type === 'mousemove' ? e.clientY : e.changedTouches[0].clientY,
                             mouseDiff = {x: x - that.mousePosition.x, y: y - that.mousePosition.y};
                         that.mousePosition.x = x;
                         that.mousePosition.y = y;
-                        
+
                         var _obj = $(selectors.window);
 
                         switch (that.mouseObj.data('obj')) {
@@ -842,7 +1013,7 @@
                                     top: _obj.data('offset').top + 'px'
                                 });
                                 break;
-                            
+
                             case 'resizer':
                                 _obj.data({
                                     width: _obj.data('width') + mouseDiff.x,
@@ -863,16 +1034,17 @@
             $.fn.uat.log.call(this, output);
         }
 
-        this.addLine = function(key, value, style){
+        this.addLine = function(key, value, style, attrs){
             var id = 'uat_result_item_' + Math.random() * 100000;
             var resultBlock = $(selectors.result);
+            attrs = typeof attrs !== 'object' ? {} : attrs;
             $('<div>')
-                .attr({style: style, id: id})
-                .html(key + ': ' + value)
+                .attr($.extend({}, {style: style, id: id}, attrs))
+                .html(key + ($.trim(value.toString()) !== '' ? ': ' + value : ''))
                 .appendTo(resultBlock);
-            resultBlock.animate({scrollTop: resultBlock.prop("scrollHeight")}, 200);
+            resultBlock.animate({scrollTop: resultBlock.prop("scrollHeight")}, 0);
         }
-        
+
         this.init = function(){
             if (getOptions().output === 'window') {
                 draw.call(this);
@@ -882,7 +1054,7 @@
 
         return this[method || 'init'].apply(this, args || []);
     }
-    
+
     $.fn.uat.storage = function() {
         var uatObjectDist = {
             window: {
@@ -942,12 +1114,12 @@
             return obj;
         }
 
-        if (typeof arguments != 'undefined' && arguments.length) {
+        if (typeof arguments !== 'undefined' && arguments.length) {
             return this[arguments[0]].apply(this, Array.from(arguments).slice(1));
         }
     }
-    
-    $.fn.uat.log = function(type, key, value){
+
+    $.fn.uat.log = function(type, key, value, attrs){
         var color = 'black',
             background = 'transparent';
 
@@ -963,25 +1135,26 @@
                 break;
             case 'info':
                 color = 'blue';
+                break;
             case 'page':
                 color = 'white';
                 background = 'black';
                 break;
         }
-        
-        function write(key, value, color){
-            addLogScope([key, value, color]);
-            show.call(this, key, value, color, getOptions().output);
+
+        function write(key, value, color, attrs){
+            addLogScope([key, value, color, attrs]);
+            show.call(this, key, value, color, attrs, getOptions().output);
         }
 
-        function show(key, value, color, output){
+        function show(key, value, color, attrs, output){
             var style = 'color:' + color + ';background:' + background;
-            value = typeof value == 'undefined' ? '' : value;
+            value = typeof value === 'undefined' ? '' : value;
 
-            if (output == 'console') {
+            if (output === 'console') {
                 console.log('%c' + key, style, value);
             } else {
-                $.fn.uat.view.call(this, 'addLine', [key, value, style]);
+                $.fn.uat.view.call(this, 'addLine', [key, value, style, attrs]);
             }
         }
 
@@ -1001,7 +1174,13 @@
                 break;
 
             default:
-                write.call(this, (typeof type != 'undefined' && type != null ? '[' + (new Date().toLocaleString()) + '] [' + type.toUpperCase() + '] ' : '') + key, value, color);
+                write.call(
+                    this,
+                    (typeof type !== 'undefined' && type != null ? '[' + (new Date().toLocaleString()) + '] [' + type.toUpperCase() + '] ' : '') + key,
+                    value,
+                    color,
+                    attrs
+                );
         }
     }
 
