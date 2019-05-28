@@ -80,6 +80,10 @@
                             resultation();
                             break;
                         }
+                        if (getOptions().break_on_error === true && data.result.type === 'error') {
+                            isPaused = true;
+                            $.fn.uat.log.call(this, null, '--- paused due to test was failed...');
+                        }
                         if (typeof receivedResult !== 'string') {
                             run();
                         } else {
@@ -102,6 +106,10 @@
 
         getOptions = function(){
             return options;
+        }
+
+        setOption = function(optionName, optionValue){
+            options[optionName] = optionValue;
         }
 
         getLogScope = function(){
@@ -955,6 +963,16 @@
                     .find('input').prop('checked', this.issetSettingInCookies('no_window_transparency')).parent()
                     .appendTo(settingsArea);
 
+                var optionsArea = $('<div>')
+                    .css({marginTop: '10px', borderTop: '1px solid #000', paddingTop: '10px'})
+                    .appendTo(testCreateDiv);
+
+                var breakOnErrorOption = $('<label>')
+                    .css('display', 'block')
+                    .html('<input type="checkbox" data-options_items="break_on_error" style="vertical-align:middle;" /> Pause (break) when some test failed')
+                    .find('input').prop('checked', getOptions().break_on_error === true).parent()
+                    .appendTo(optionsArea);
+
                 var helpDiv = $('<div>')
                     .attr({id: selectors.help.replace('#', '')})
                     .css($.extend({}, blockCSS, {width: '100%', maxWidth: '300px', minWidth: '300px'}, scrollableCSS))
@@ -998,7 +1016,7 @@
         this.CtrlAltG = function(e){
             e.preventDefault();
             if (getIsPaused()) {
-                $.fn.uat.log.call(this, null, 'Tests are on the PAUSE. Use CTRL + ALT + P to resume the queue.');
+                $.fn.uat.log.call(this, null, 'Tests are on the PAUSE. Use CTRL + ALT + P or button onthe right side to resume the queue.');
                 return;
             }
             run();
@@ -1070,6 +1088,12 @@
                     var d = new Date();
                     d.setTime(d.getTime() + ($(this).prop('checked') === true ? 30 : -1) * 24 * 60 * 60 * 1000);
                     document.cookie = 'uat_settings__' + $(this).data('settings_items') + '=1;expires=' + d.toUTCString() + ';domain=' + location.host + ';path=/';
+                })
+                .on('change', '[data-options_items]', function(){
+                    var optionName = $(this).data('options_items');
+                    if (typeof getOptions()[optionName] !== 'undefined') {
+                        setOption(optionName, $(this).prop('checked'));
+                    }
                 });
 
             $(window)
