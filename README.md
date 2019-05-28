@@ -47,6 +47,8 @@ $(document).ready(function(){
 whether document contains element selected by `selector` or not
 * `.sourceContains (string selector, string content, boolean expected)`  
 whether element selected by `selector` contains `content` or not
+* `.sourceEqualsTo (string selector, string content, boolean expected)`  
+whether element selected by `selector` has exactly the same HTML content as `content` or not
 * `.hasCookie (string: cookieName, boolean: expected)`  
 whether document has cookie with `cookieName` or not
 * `.cookieValue (string cookieName, string cookieValue, boolean expected)`

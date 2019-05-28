@@ -338,10 +338,12 @@
                 overwrittenParams = typeof overwrittenParams !== 'object' ? {} : overwrittenParams;
                 for (var t = 0; t < testSets[testName].tests.length; t++) {
                     var test = testSets[testName].tests[t],
-                        args = test.args;
+                        args = test.args.slice(0);
 
                     if (test.label !== null && typeof overwrittenParams[test.label] !== 'undefined') {
-                        args = overwrittenParams[test.label];
+                        for (var a = 0; a < overwrittenParams[test.label].length; a++) {
+                            args[a] = overwrittenParams[test.label][a];
+                        }
                     }
 
                     addIteration(test.type, test.name, args, test.label);
@@ -360,6 +362,12 @@
         this.sourceContains = function(selector, content, expected, label){
             expected = typeof expected !== 'boolean' ? true : expected;
             return addUnit.call(this, 'sourceContains', [selector, content, expected], label);
+        }
+
+        // public test
+        this.sourceEqualsTo = function(selector, content, expected, label){
+            expected = typeof expected !== 'boolean' ? true : expected;
+            return addUnit.call(this, 'sourceEqualsTo', [selector, content, expected], label);
         }
 
         // public test
@@ -511,7 +519,16 @@
      * TEST: sourceContains
      */
     $.fn.uat.unit.sourceContains = function(selector, content, expected){
-        var result = ((new RegExp(content, 'gi')).test($(selector).html()));
+        var regexp = (new RegExp(content.replace(/\(/g, '\\\\\\\(').replace(/\)/g, '\\\\\\\)'), 'gi'));
+        var result = regexp.test($(selector).html());
+        return {type: result === expected ? 'success' : 'error', result: result};
+    }
+
+    /**
+     * TEST: sourceEqualsTo
+     */
+    $.fn.uat.unit.sourceEqualsTo = function(selector, content, expected){
+        var result = $.trim($(selector).html()) === $.trim(content);
         return {type: result === expected ? 'success' : 'error', result: result};
     }
 
