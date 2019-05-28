@@ -20,6 +20,8 @@ number of milliseconds (!) for timeout between tests / steps
 where to output results of the tests
 * `child` **boolean** *default = `false`*  
 if page, where the script is involved, is supposed to be tested, `child` option should be set to `true` to avoid initialization of the script, when page is loaded normally in browser.
+* `break_on_error` **boolean** *default = `false`*  
+whether pause testing after any test was failed
 
 #### How to setup plugin
 
@@ -71,7 +73,12 @@ moves current caret to the object by selector id
 * `.resetObj ()`  
 resets the object, previously found in `.findObj` method
 * `.setCookie (string: cookieName, mixed: cookieValue)`  
-sets new cookie (or updates existing) with the passed value
+sets new cookie (or updates existing) with the passed `cookieValue`.  
+If `cookieValue` is an object, then you can specify optional parameters  
+  * `cookieValue.value` *string|number* - actual value of the cookie
+  * `cookieValue.expires` *number* - in how many seconds cookie will expire
+  * `cookieValue.domain` *string* - specific domain with leading `dot` symbol
+  * `cookieValue.path` *string* - specific path option
 * `.removeCookie (string: cookieName)`  
 removes cookie by its name
 * `.scrollToObj (string: selector, number: extra)`  

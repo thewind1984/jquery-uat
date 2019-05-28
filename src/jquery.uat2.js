@@ -662,7 +662,25 @@
      * STEP: setCookie
      */
     $.fn.uat.unit.setCookie = function(cookieName, cookieValue){
-        document.cookie = cookieName + '=' + cookieValue.toString();
+        var isObject = typeof cookieValue === 'object',
+            value = !isObject ? cookieValue.toString() : (typeof cookieValue.value !== 'undefined' ? cookieValue.value : ''),
+            expires = '',
+            domain = '',
+            path = '';
+        if (isObject) {
+            if (typeof cookieValue.expires !== 'undefined') {
+                var d = new Date();
+                d.setTime(d.getTime() + parseInt(cookieValue.expires) * 1000);
+                expires = ';expires=' + d.toUTCString();
+            }
+            if (typeof cookieValue.domain !== 'undefined') {
+                domain = ';domain=' + cookieValue.domain.toString();
+            }
+            if (typeof cookieValue.path !== 'undefined') {
+                path = ';path=' + cookieValue.path.toString();
+            }
+        }
+        document.cookie = cookieName + '=' + value + expires + domain + path;
         return {type: 'success', result: true};
     }
 
