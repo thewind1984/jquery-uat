@@ -95,12 +95,12 @@ submits the form by given selector
 
 You can combine tests, save them to `testSet` and run repeatably with variable parameters.
 
-* `.beginTestSet (string testName)`
+* `.beginTestSet (string testName)`  
 will start new testSet with specified `testName` recording  
 **NOTE:** *if testSet with specified name is already exist, then method will do nothing. Does not matter, was specified testSet commited or not.*
-* `.commitTestSet`
+* `.commitTestSet`  
 will commit (finish) testSet with specified `testName`, if it exists (started and not commited yet)
-* `.involveTestSet (string testName, object overwrittenParams)`
+* `.involveTestSet (string testName, object overwrittenParams)`  
 will repeat commited testSet with opportunity to overwrite some parameters for some tests.  
 See example below.
 
