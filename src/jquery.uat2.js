@@ -849,7 +849,7 @@
                         border: '2px solid #bbb',
                         borderRadius: '6px',
                         justifyContent: 'space-between',
-                        opacity: defaultOpacity,
+                        opacity: !this.issetSettingInCookies('no_window_transparency') ? defaultOpacity : 1,
                         minHeight: '100px',
                         minWidth: '522px',
                         transition: 'opacity .3s',
@@ -944,7 +944,15 @@
                     .appendTo(testCreateDiv);
 
                 var whetherCleanConsoleBetweenIterations = $('<label>')
+                    .css('display', 'block')
                     .html('<input type="checkbox" data-settings_items="whether_clean_console" style="vertical-align:middle;" /> Do not clean console before new iteration of tests')
+                    .find('input').prop('checked', this.issetSettingInCookies('whether_clean_console')).parent()
+                    .appendTo(settingsArea);
+
+                var whetherMakeWindowTransparent = $('<label>')
+                    .css('display', 'block')
+                    .html('<input type="checkbox" data-settings_items="no_window_transparency" style="vertical-align:middle;" /> Do not change opacity of UAT window')
+                    .find('input').prop('checked', this.issetSettingInCookies('no_window_transparency')).parent()
                     .appendTo(settingsArea);
 
                 var helpDiv = $('<div>')
@@ -962,6 +970,10 @@
 
                 this.showResults('window');
             }
+        }
+
+        this.issetSettingInCookies = function(setting_name){
+            return new RegExp('(^|; )' + 'uat_settings__' + setting_name + '=([^;$]*)', 'gi').exec(document.cookie) !== null;
         }
 
         this.CtrlAltU = function(e){
@@ -1011,7 +1023,11 @@
         function keyboardListener(){
             $('body')
                 .on('mouseover touchstart', selectors.window, function(){ $(this).css('opacity', 1); })
-                .on('mouseout touchend', selectors.window, function(){ $(this).css('opacity', defaultOpacity); })
+                .on('mouseout touchend', selectors.window, function(){
+                    if ($('[data-settings_items="no_window_transparency"]').prop('checked') === false) {
+                        $(this).css('opacity', defaultOpacity);
+                    }
+                })
                 .on('mousedown touchstart', selectors.mouseMover + ',' + selectors.mouseResizer, function(e){
                     that.mouseIsDown = true;
                     that.mouseObj = $(this);
@@ -1049,6 +1065,11 @@
                         $('body').append('<style id="test_result_selection">[class^="test-result-"]{display:none;}.test-result-'+$(this).data('tests')+'{display:block;}</style>');
                         $(this).addClass('clicked').css('opacity', '1').siblings('[data-tests]').removeClass('clicked').css('opacity', '.5');
                     }
+                })
+                .on('change', '[data-settings_items]', function(){
+                    var d = new Date();
+                    d.setTime(d.getTime() + ($(this).prop('checked') === true ? 30 : -1) * 24 * 60 * 60 * 1000);
+                    document.cookie = 'uat_settings__' + $(this).data('settings_items') + '=1;expires=' + d.toUTCString() + ';domain=' + location.host + ';path=/';
                 });
 
             $(window)
