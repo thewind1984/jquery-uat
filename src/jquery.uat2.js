@@ -403,6 +403,12 @@
         }
 
         // public test
+        this.hasAttribute = function(selector, name, expected, label){
+            expected = typeof expected !== 'boolean' ? true : expected;
+            return addUnit.call(this, 'hasAttribute', [selector, name, expected], label);
+        }
+
+        // public test
         this.valueEqualsTo = function(selector, value, label){
             return addUnit.call(this, 'valueEqualsTo', [selector, value], label);
         }
@@ -468,6 +474,11 @@
         // public step
         this.appendTo = function(selector, content, label){
             return addStep.call(this, 'appendTo', [selector, content], label);
+        }
+
+        // public step
+        this.setAttribute = function(selector, name, value, label){
+            return addStep.call(this, 'setAttribute', [selector, name, value], label);
         }
 
         // run all steps
@@ -600,6 +611,15 @@
     }
 
     /**
+     * TEST hasAttribute
+     */
+    $.fn.uat.unit.hasAttribute = function(selector, name, expected){
+        var obj = $(selector),
+            result = obj.length && obj.get(0).hasAttribute(name);
+        return {type: result === expected ? 'success' : 'error', result: obj.eq(0).attr('name')};
+    }
+
+    /**
      * TEST: valueEqualsTo
      */
     $.fn.uat.unit.valueEqualsTo = function(selector, value){
@@ -713,6 +733,14 @@
     $.fn.uat.unit.appendTo = function(selector, content){
         $(selector).append(content);
         return {type: 'success', result: true};
+    }
+
+    /**
+     * STEP: setAttribute
+     */
+    $.fn.uat.unit.setAttribute = function(selector, name, value){
+        $(selector).attr(name, value);
+        return {type: $(selector).get(0).hasAttribute(name) ? 'success' : 'error', result: value.toString() === '' ? '[EMPTY VALUE]' : value};
     }
 
     /**

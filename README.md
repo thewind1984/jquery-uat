@@ -60,7 +60,9 @@ whether object selected by `selector` is visible on the current window area or n
 * `.hasJsVariable (string variableName, boolean expected)`  
 whether document has JS variable with `variableName` or not
 * `.valueEqualsTo (string: selector, string: value)`  
-whether value of object selected by `selector` equaled to `value`  
+whether value of object selected by `selector` equaled to `value`
+* `.hasAttribute (string: selector, string: name)`  
+whether object selected by `selector` has attribute with specified `name`  
 
 These tests can be applied to any field (`select`, `input`, `button`, `textarea`).  
 In case of multiple select or checkbox / radio input, test will check every selected / checked object.  
@@ -97,6 +99,8 @@ redirects current page to another URL in order to proceed with tests
 **NOTE:** *each page should include .js file of plugin in order to be initialized after DOM is loaded*  
 * `.formSubmit (string selector)`  
 submits the form by given selector
+* `.setAttribute (string selector, string name, string value)`  
+sets specified `value` to attribute with `name` for object found by `selector`
 
 ### Tests sets
 
