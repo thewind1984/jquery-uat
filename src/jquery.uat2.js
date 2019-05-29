@@ -37,7 +37,8 @@
             isLastTest = false,
             frameLoadedTimes = 0,
             currentTestName = null,
-            testSets = {};
+            testSets = {},
+            currentTestNum;
 
         function init(){
             $('body').html(
@@ -169,11 +170,12 @@
 
         // visible from this and from childs
         testFinished = function(type, resultData){
-            var testNum = $.fn.uat.storage.call(this, 'get', 'testNum');
+            var testNum = currentTestNum; //$.fn.uat.storage.call(this, 'get', 'testNum');
             tests[testNum].result = resultData;
             tests[testNum].passed = 1;
-            $.fn.uat.storage.call(this, 'set', 'tests', tests);
-            $.fn.uat.storage.call(this, 'set', 'testNum', testNum + 1);
+            // $.fn.uat.storage.call(this, 'set', 'tests', tests);
+            // $.fn.uat.storage.call(this, 'set', 'testNum', testNum + 1);
+            currentTestNum = testNum + 1;
 
             addCounter(resultData.type, 1);
 
@@ -202,6 +204,7 @@
             $.fn.uat.storage.call(this, 'set', 'tests', null);      // clean
             $.fn.uat.storage.call(this, 'set', 'settings', {});   // clean
             $.fn.uat.storage.call(this, 'set', 'testNum', 0);    // clean
+            currentTestNum = 0;
             lastFoundObj = false;
             isRedirected = false;
             isPaused = false;
@@ -243,7 +246,8 @@
 
         function runQueue(){
             testInProcess = true;
-            var testNum = !started ? 0 : ($.fn.uat.storage.call(this, 'get', 'testNum') || 0);
+            // var testNum = !started ? 0 : ($.fn.uat.storage.call(this, 'get', 'testNum') || 0);
+            var testNum = !started ? 0 : (currentTestNum || 0);
             if (testNum >= tests.length) {
                 return resultation.call(this);
             }
@@ -485,6 +489,7 @@
         this.finish = function(){
             $.fn.uat.storage.call(this, 'set', 'tests', tests, true);
             $.fn.uat.storage.call(this, 'set', 'testNum', 0);
+            currentTestNum = 0;
             $.fn.uat.log.call(this, null, '--- detect tests...', '', {'data-service': 1});
             if (tests.length) {
                 $.fn.uat.log.call(this, null, '--- tests found', tests.length, {'data-service': 1});
@@ -1099,6 +1104,9 @@
                 return;
             }
             togglePause();
+            if (getIsPaused()) {
+                $.fn.uat.log.call(this, null, '--- pause after closest test...');
+            }
             if (!getIsPaused() && !getTestInProcess()) {
                 run();
             }
