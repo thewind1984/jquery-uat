@@ -476,12 +476,14 @@
             $.fn.uat.log.call(this, null, '--- detect tests...', '', {'data-service': 1});
             if (tests.length) {
                 $.fn.uat.log.call(this, null, '--- tests found', tests.length, {'data-service': 1});
+                setCounter('all', tests.length);
                 $.fn.uat.log.call(this, null, '--- generating JSON object...', '', {'data-service': 1});
                 $.fn.uat.json.call(this, 'prepare');
                 $.fn.uat.log.call(this, null, '--- JSON object is ready', '', {'data-service': 1});
             } else {
                 $.fn.uat.log.call(this, null, '--- no tests found', '', {'data-service': 1});
             }
+            testSets = {};
         }
 
         run = function(){
@@ -493,9 +495,13 @@
                 setCounter('error', 0);
                 addCounter('iterations', 1);
             }
-            setTimeout(function(){
-                $('body').trigger('uatqueue');
-            }, started ? options.timeout * 1000 : 50);
+            if (parseInt(options.timeout) > 0) {
+                setTimeout(function(){
+                    $('body').trigger('uatqueue');
+                }, started ? options.timeout * 1000 : 50);
+            } else {
+                runQueue.call(this);
+            }
         }
 
         listeners();
@@ -789,7 +795,7 @@
             tabActiveCSS = {borderBottomColor: '#efefef', zIndex: 2, top: 0, marginTop: '-2px', paddingTop: '6px', paddingBottom: '13px'},
             tabFirstCSS = {borderLeftWidth: '1px'},
             buttonCSS = {cursor: 'pointer', background: '#aaa', color: '#fff', fontWeight: 'normal', padding: '2px 5px', borderRadius: '4px'},
-            labelCss = {cursor: 'pointer', background: '#eee', color: '#000', borderRadius: '4px', padding: '2px 5px', position: 'relative', top: '-1px', marginLeft: '3px', textDecoration: 'none', outline: 'none', whiteSpace: 'nowrap'};
+            labelCss = {cursor: 'pointer', background: '#eee', color: '#000', borderRadius: '4px', padding: '2px 5px', position: 'relative', top: '-1px', marginLeft: '3px', textDecoration: 'none', outline: 'none', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center'};
 
         function saveWindowState(){
             var mainDiv = $(selectors.window);
@@ -931,15 +937,27 @@
                     .text('')
                     .appendTo(statsDiv);
 
+                var statsCommonDiv = $('<div data-tests="all">')
+                    .css($.extend({}, labelCss, {border: '1px solid #aaa'}))
+                    .html('<b>0</b>')
+                    .attr('title', 'All tests')
+                    .appendTo(statsDiv);
+
                 var statsSuccessDiv = $('<a data-tests="success">')
                     .css($.extend({}, labelCss, {background: 'green', color: '#fff'}))
-                    .html('<span>Passed:</span> <b>0</b>')
+                    .html('<b>0</b>')
                     .attr('title', 'Click to see only passed tests')
+                    .appendTo(statsDiv);
+
+                var statsWarningDiv = $('<a data-tests="warning">')
+                    .css($.extend({}, labelCss, {background: 'orange', color: '#fff'}))
+                    .html('<b>0</b>')
+                    .attr('title', 'Click to see only warning tests')
                     .appendTo(statsDiv);
 
                 var statsFailedDiv = $('<a data-tests="error">')
                     .css($.extend({}, labelCss, {background: 'pink', color: '#cc0000'}))
-                    .html('<span>Failed:</span> <b>0</b>')
+                    .html('<b>0</b>')
                     .attr('title', 'Click to see only failed tests')
                     .appendTo(statsDiv);
 
@@ -1092,7 +1110,7 @@
                     //functionTemp(e);
                     //$.fn.uat.view.call(that, functionName, e);
                 })
-                .on('click', '[data-tests]', function(e){
+                .on('click', 'a[data-tests]', function(e){
                     e.preventDefault();
                     $('#test_result_selection').remove();
                     if ($(this).hasClass('clicked')) {
@@ -1237,7 +1255,7 @@
             testNum: 0,
         }
 
-        var storageKey = 'uat_object';
+        var storageKey = 'uat_object__' + btoa(location.href);
 
         this.set = function(key, value) {
             var uatObject = this.object() || uatObjectDist;
