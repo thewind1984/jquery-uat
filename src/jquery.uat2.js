@@ -472,7 +472,8 @@
 
         // run all steps
         this.finish = function(){
-            $.fn.uat.storage.call(this, 'set', 'tests', tests);
+            $.fn.uat.storage.call(this, 'set', 'tests', tests, true);
+            $.fn.uat.storage.call(this, 'set', 'testNum', 0);
             $.fn.uat.log.call(this, null, '--- detect tests...', '', {'data-service': 1});
             if (tests.length) {
                 $.fn.uat.log.call(this, null, '--- tests found', tests.length, {'data-service': 1});
@@ -718,7 +719,11 @@
      * STEP: fillIn
      */
     $.fn.uat.unit.fillIn = function(selector, value){
-        $(selector).val(value).trigger('change');
+        var obj = $(selector),
+            tagName = obj.get(0).tagName.toLowerCase(),
+            objType = obj.attr('type') || null,
+            triggerType = (tagName === 'input' && $.inArray(objType, ['text', 'password', 'email', 'tel']) !== -1) || tagName === 'textarea' ? 'keyup' : 'change';
+        obj.val(value).trigger(triggerType);
         return {type: 'success', result: true};
     }
 
@@ -889,6 +894,8 @@
                     }))
                     .css(typeof windowTop === 'undefined' ? 'bottom' : 'top', windowTop || initialState.bottom)
                     .appendTo('body');
+
+                $('<style>').html('[id^="uat_result_item_"]{user-select:text;}').appendTo(mainDiv);
 
                 saveWindowState.call(this);
 
@@ -1257,10 +1264,19 @@
 
         var storageKey = 'uat_object__' + btoa(location.href);
 
-        this.set = function(key, value) {
-            var uatObject = this.object() || uatObjectDist;
-            var obj = this.prepareObjFromKey(key, value);
-            this.object($.extend(true, {}, uatObject, obj));
+        this.set = function(key, value, replace) {
+            var uatObject = this.object() || uatObjectDist,
+                replace = typeof replace !== 'boolean' ? false : replace,
+                arg;
+
+            if (replace === true) {
+                var tempObj = {};
+                tempObj[key] = value;
+                arg = $.extend({}, uatObject, tempObj);
+            } else {
+                arg = $.extend(true, {}, uatObject, this.prepareObjFromKey(key, value));
+            }
+            this.object(arg);
         }
 
         this.get = function(key) {
