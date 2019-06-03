@@ -39,7 +39,8 @@
             currentTestName = null,
             testSets = {},
             currentTestNum,
-            expectedUrl = null;
+            expectedUrl = null,
+            spentTimeInterval = null;
 
         function init(){
             $('body').html(
@@ -134,6 +135,7 @@
 
         togglePause = function(){
             isPaused = !isPaused;
+            toggleSpentTime();
         }
 
         getIsPaused = function(){
@@ -160,15 +162,21 @@
             while(curDate-date < ms);
         }
 
-        setCounter = function(type, value) {
+        setCounter = function(type, value, num) {
             var counterObj = $('[data-tests="' + type + '"] b');
+            if (typeof num !== 'undefined' && typeof num === 'number') {
+                counterObj = counterObj.eq(num);
+            }
             counterObj.text(value);
         }
 
-        addCounter = function(type, add) {
-            var counterObj = $('[data-tests="' + type + '"] b'),
-                counterValue = parseInt(counterObj.text()) + parseInt(add);
-            setCounter(type, counterValue);
+        addCounter = function(type, add, num) {
+            var counterObj = $('[data-tests="' + type + '"] b');
+            if (typeof num !== 'undefined' && typeof num === 'number') {
+                counterObj = counterObj.eq(num);
+            }
+            var counterValue = parseInt(counterObj.text()) + parseInt(add);
+            setCounter(type, counterValue, num);
         }
 
         // visible from this and from childs
@@ -181,6 +189,7 @@
             currentTestNum = testNum + 1;
 
             addCounter(resultData.type, 1);
+            setCounter('all', testNum + 1, 0);
 
             if (options.timeout) {
                 $.fn.uat.log.call(this, null, '--- timeout', options.timeout + 'sec');
@@ -190,7 +199,7 @@
         }
 
         resultation = function(){
-            var types = {};
+            var types = {success: 0, error: 0, warning: 0};
             $(tests).each(function(){
                 if (this.passed === 1) {
                     if (typeof types[this.result.type] === 'undefined') {
@@ -201,12 +210,20 @@
             });
             var types2 = [];
             $.each(types, function(type, count){
-                types2.push(type + ': ' + count);
+                var color;
+                switch (type) {
+                    case 'success': color = 'green'; break;
+                    case 'error': color = 'red'; break;
+                    case 'warning': color = 'orange'; break;
+                    default: color = 'black'; break;
+                }
+                types2.push('<span style="color:'+color+';">' + type + ': ' + count + '</span>');
             });
             $.fn.uat.log.call(this, null, '--- tests finished', types2.join(', '));
-            $.fn.uat.storage.call(this, 'set', 'tests', null);      // clean
-            $.fn.uat.storage.call(this, 'set', 'settings', {});   // clean
+            $.fn.uat.log.call(this, null, '--- time spent', $.fn.uat.log.call(this, 'get_spent_time') + ' sec.');
             $.fn.uat.storage.call(this, 'set', 'testNum', 0);    // clean
+            toggleSpentTime();
+
             currentTestNum = 0;
             lastFoundObj = false;
             isRedirected = false;
@@ -214,6 +231,16 @@
             testInProcess = false;
             isLastTest = false;
             started = false;
+            tempLocation = location.href;
+
+            redirectionDescription = null;
+            currentTestName = null;
+            expectedUrl = null;
+
+            tests[currentTestNum].page = tempLocation;
+            $.fn.uat.storage.call(this, 'set', 'tests', tests);
+            $.fn.uat.json.call(this, 'prepare');
+
             return this;
         }
 
@@ -247,17 +274,30 @@
             return this;
         }
 
-        function newPageLoaded(url){
+        function newPageLoaded(url, word){
             if (!started) {
                 prepareConsole();
             }
             if (isRedirected) {
                 isRedirected = false;
             }
-            $.fn.uat.log.call(this, 'page', '--- page', '<a href="' + url + '" target="_blank" style="color:#fff;">' + url + '</a>' + (redirectionDescription !== null ? ' [' + redirectionDescription + ']' : ''));
+            word = typeof word === 'undefined' ? '--- page' : word;
+            $.fn.uat.log.call(this, 'page', word, '<a href="' + url + '" target="_blank" style="color:#fff;">' + url + '</a>' + (redirectionDescription !== null ? ' [' + redirectionDescription + ']' : ''));
             $('[data-current_page]').attr('href', url).text(url);
 
             tempLocation = url;
+        }
+
+        function toggleSpentTime(){
+            if (spentTimeInterval === null && !getIsPaused()) {
+                var that = this;
+                spentTimeInterval = setInterval(function () {
+                    $.fn.uat.log.call(that, 'spent_time');
+                }, 100);
+            } else {
+                clearInterval(spentTimeInterval);
+                spentTimeInterval = null;
+            }
         }
 
         function runQueue(){
@@ -281,6 +321,7 @@
             }
             if (!started) {
                 started = new Date();
+                toggleSpentTime();
             }
             test.date = new Date();
 
@@ -316,7 +357,7 @@
 
         function receiveTestResult(test, result){
             if (test.page !== test.real_location) {
-                newPageLoaded(test.real_location);
+                newPageLoaded(test.real_location, '--- actual page');
             }
             $.fn.uat.log.call(this, result.type, test.name + ' test: ' + escapeHTML($.fn.uat.args.call(this, test.args)), result.result, {'class': 'test-result-' + result.type});
             return testFinished.call(this, test.type, result);
@@ -519,7 +560,7 @@
             $.fn.uat.log.call(this, null, '--- detect tests...', '', {'data-service': 1});
             if (tests.length) {
                 $.fn.uat.log.call(this, null, '--- tests found', tests.length, {'data-service': 1});
-                setCounter('all', tests.length);
+                setCounter('all', tests.length, 1);
                 $.fn.uat.log.call(this, null, '--- generating JSON object...', '', {'data-service': 1});
                 $.fn.uat.json.call(this, 'prepare');
                 $.fn.uat.log.call(this, null, '--- JSON object is ready', '', {'data-service': 1});
@@ -536,6 +577,7 @@
             if (!started) {
                 setCounter('success', 0);
                 setCounter('error', 0);
+                setCounter('warning', 0);
                 addCounter('iterations', 1);
             }
             if (parseInt(options.timeout) > 0) {
@@ -1021,7 +1063,7 @@
 
                 var statsCommonDiv = $('<div data-tests="all">')
                     .css($.extend({}, labelCss, {border: '1px solid #aaa'}))
-                    .html('<b>0</b>')
+                    .html('<b>0</b>&nbsp;/&nbsp;<b>0</b>&nbsp;/&nbsp;<b>0</b>')
                     .attr('title', 'All tests')
                     .appendTo(statsDiv);
 
@@ -1444,16 +1486,59 @@
             }
         }
 
+        function formatDate(d){
+            return sprintf(d.getDay(), 2) + '.' + sprintf(d.getMonth() + 1, 2) + '.' + sprintf(d.getFullYear(), 4) + ' ' + sprintf(d.getHours(), 2) + ':' + sprintf(d.getMinutes(), 2) + ':' + sprintf(d.getSeconds(), 2) + '.' + d.getMilliseconds();
+        }
+
+        function sprintf(n, s, p){
+            n = n.toString();
+            s = typeof s === 'undefined' ? n.length : s;
+            if (n.length >= s) {
+                return n;
+            }
+            var ss = [];
+            for (var sss = 0; sss < s - n.length; sss++) {
+                ss.push('0');
+            }
+            p = typeof p === 'undefined' ? 0 : p;
+            return (p === 0 ? ss.join('') : '') + n + (p === 1 ? ss.join('') : '');
+        }
+
+        function spentTime(){
+            var result = getSpentTime();
+            if (result !== null) {
+                setCounter('all', result + ' sec.', 2);
+            }
+        }
+
+        function getSpentTime(){
+            var startDate = isStarted();
+            if (typeof startDate !== 'boolean') {
+                var value = ((new Date()).getTime() / 1000 - startDate.getTime() / 1000) * 10000,
+                    value = value.toString().split('.')[0],
+                    value = (parseInt(value) / 10000).toString().split('.');
+                return value[0].toString() + '.' + sprintf(value.length > 1 ? value[1].toString() : '0', 4, 1);
+            }
+            return null;
+        }
+
         switch (type) {
             case 'window':
             case 'console':
                 showIn.call(this, type);
                 break;
 
+            case 'spent_time':
+                spentTime.call(this);
+                break;
+
+            case 'get_spent_time':
+                return getSpentTime.call(this);
+
             default:
                 write.call(
                     this,
-                    (typeof type !== 'undefined' && type != null ? '[' + (new Date().toLocaleString()) + '] [' + type.toUpperCase() + '] ' : '') + key,
+                    (typeof type !== 'undefined' && type != null ? '[' + formatDate(new Date()) + '] [' + type.toUpperCase() + '] ' : '') + key,
                     value,
                     color,
                     attrs
@@ -1469,6 +1554,8 @@
                 delete tests[k]['passed'];
                 delete tests[k]['date'];
                 delete tests[k]['result'];
+                delete tests[k]['real_location'];
+                delete tests[k]['location'];
             });
             $(block).text(JSON.stringify(tests));
         }
