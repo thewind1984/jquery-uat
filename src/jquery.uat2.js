@@ -70,13 +70,15 @@
                     // iframe runs the test and sends the result back with `receiveTestResult` command
                     case 'runTest':
                         var testResult = runTest(data.test);
-                        parent.postMessage(JSON.stringify({command: 'receiveTestResult', test: data.test, result: testResult, location: data.test.name === 'redirectTo' ? data.test.args[0] : location.href}), e.origin);
+                        data.test.location = data.test.name === 'redirectTo' ? data.test.args[0] : location.href;
+                        data.test.real_location = location.href;
+                        parent.postMessage(JSON.stringify({command: 'receiveTestResult', test: data.test, result: testResult}), e.origin);
                         break;
 
                     // command received by parent with the result of test
                     case 'receiveTestResult':
                         var receivedResult = receiveTestResult(data.test, data.result);
-                        lastTestPage = data.location;
+                        lastTestPage = data.test.location;
                         testInProcess = false;
                         if (isLastTest) {
                             resultation();
@@ -245,6 +247,19 @@
             return this;
         }
 
+        function newPageLoaded(url){
+            if (!started) {
+                prepareConsole();
+            }
+            if (isRedirected) {
+                isRedirected = false;
+            }
+            $.fn.uat.log.call(this, 'page', '--- page', '<a href="' + url + '" target="_blank" style="color:#fff;">' + url + '</a>' + (redirectionDescription !== null ? ' [' + redirectionDescription + ']' : ''));
+            $('[data-current_page]').attr('href', url).text(url);
+
+            tempLocation = url;
+        }
+
         function runQueue(){
             testInProcess = true;
             // var testNum = !started ? 0 : ($.fn.uat.storage.call(this, 'get', 'testNum') || 0);
@@ -261,17 +276,8 @@
                 });
             }
             var test = tests[testNum];
-            if (test.page !== tempLocation || !started || isRedirected) {
-                if (!started) {
-                    prepareConsole();
-                }
-                if (isRedirected) {
-                    isRedirected = false;
-                }
-                $.fn.uat.log.call(this, 'page', '--- page', '<a href="' + test.page + '" target="_blank" style="color:#fff;">' + test.page + '</a>' + (redirectionDescription !== null ? ' [' + redirectionDescription + ']' : ''));
-                $('[data-current_page]').attr('href', test.page).text(test.page);
-
-                tempLocation = test.page;
+            if (!started || isRedirected) {
+                newPageLoaded(test.page);
             }
             if (!started) {
                 started = new Date();
@@ -282,6 +288,8 @@
                 $('#source_site_iframe').css('filter', 'blur(5px)');
                 $('#iframe_loader').css('display', 'flex');
             }
+
+            test.page = tempLocation;
 
             // send test to remote page
             $('#source_site_iframe').get(0).contentWindow.postMessage(JSON.stringify({command: 'runTest', test: test}), lastTestPage !== null ? lastTestPage : test.page);
@@ -307,6 +315,9 @@
         }
 
         function receiveTestResult(test, result){
+            if (test.page !== test.real_location) {
+                newPageLoaded(test.real_location);
+            }
             $.fn.uat.log.call(this, result.type, test.name + ' test: ' + escapeHTML($.fn.uat.args.call(this, test.args)), result.result, {'class': 'test-result-' + result.type});
             return testFinished.call(this, test.type, result);
         }
@@ -685,7 +696,7 @@
     $.fn.uat.unit.checkExpectedUrl = function(expectedUrl){
         var currentUrl = location.href.replace(/[\/]*$/g, ''),
             result = currentUrl === expectedUrl;
-        return {type: result ? 'success' : 'error', result: currentUrl + ' <=> ' + expectedUrl};
+        return {type: result ? 'success' : 'error', result: currentUrl};
     }
 
     /**
