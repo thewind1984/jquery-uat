@@ -38,7 +38,8 @@
             frameLoadedTimes = 0,
             currentTestName = null,
             testSets = {},
-            currentTestNum;
+            currentTestNum,
+            expectedUrl = null;
 
         function init(){
             $('body').html(
@@ -69,7 +70,7 @@
                     // iframe runs the test and sends the result back with `receiveTestResult` command
                     case 'runTest':
                         var testResult = runTest(data.test);
-                        parent.postMessage(JSON.stringify({command: 'receiveTestResult', test: data.test, result: testResult, location: data.test.name === 'redirectTo' ? data.test.args[0] : data.test.page}), e.origin);
+                        parent.postMessage(JSON.stringify({command: 'receiveTestResult', test: data.test, result: testResult, location: data.test.name === 'redirectTo' ? data.test.args[0] : location.href}), e.origin);
                         break;
 
                     // command received by parent with the result of test
@@ -269,6 +270,7 @@
                 }
                 $.fn.uat.log.call(this, 'page', '--- page', '<a href="' + test.page + '" target="_blank" style="color:#fff;">' + test.page + '</a>' + (redirectionDescription !== null ? ' [' + redirectionDescription + ']' : ''));
                 $('[data-current_page]').attr('href', test.page).text(test.page);
+
                 tempLocation = test.page;
             }
             if (!started) {
@@ -417,6 +419,13 @@
             return addUnit.call(this, 'valueEqualsTo', [selector, value], label);
         }
 
+        // public test
+        this.checkExpectedUrl = function(label){
+            var url = expectedUrl;
+            expectedUrl = null;
+            return addUnit.call(this, 'checkExpectedUrl', [url], label);
+        }
+
         // public step
         this.findObj = function(selector, label){
             return addStep.call(this, 'findObj', [selector], label);
@@ -463,6 +472,12 @@
         // public step
         this.waitFor = function(testName, selector, timeout, label){
 
+        }
+
+        // public step
+        this.waitForUrl = function(url, label){
+            expectedUrl = url;
+            return addStep.call(this, 'waitForUrl', [url], label);
         }
 
         // public step
@@ -665,6 +680,15 @@
     }
 
     /**
+     * TEST: checkExpectedUrl
+     */
+    $.fn.uat.unit.checkExpectedUrl = function(expectedUrl){
+        var currentUrl = location.href.replace(/[\/]*$/g, ''),
+            result = currentUrl === expectedUrl;
+        return {type: result ? 'success' : 'error', result: currentUrl + ' <=> ' + expectedUrl};
+    }
+
+    /**
      * Move testContainer to another step (another object, redirect to page)
      */
     $.fn.uat.step = function(testName, testArgs){
@@ -773,6 +797,13 @@
      */
     $.fn.uat.unit.wait = function(ms){
         sleep.call(this, ms);
+        return {type: 'success', result: true};
+    }
+
+    /**
+     * STEP: waitForUrl
+     */
+    $.fn.uat.unit.waitForUrl = function(url){
         return {type: 'success', result: true};
     }
 
