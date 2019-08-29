@@ -40,7 +40,8 @@
             testSets = {},
             currentTestNum,
             expectedUrl = null,
-            spentTimeInterval = null;
+            spentTimeInterval = null,
+            testResultAwaited = false;
 
         function init(){
             $('body').html(
@@ -54,7 +55,10 @@
             if (frameLoadedTimes > 0) {
                 $('#source_site_iframe').css('filter', 'none');
                 $('#iframe_loader').hide();
-                $('body').trigger('uatqueue');
+                if (testResultAwaited === true) {
+                    $('body').trigger('uatqueue');
+                    testResultAwaited = false;
+                }
             }
             frameLoadedTimes++;
         }
@@ -90,6 +94,7 @@
                             $.fn.uat.log.call(this, null, '--- paused due to test was failed...');
                         }
                         if (typeof receivedResult !== 'string') {
+                            testResultAwaited = false;
                             run();
                         } else {
                             switch (receivedResult) {
@@ -113,8 +118,14 @@
             return options;
         }
 
-        setOption = function(optionName, optionValue){
+        this.setOption = function(optionName, optionValue){
             options[optionName] = optionValue;
+
+            if (typeof options[optionName] === 'boolean') {
+                $('[data-options_items="break_on_error"]').prop('checked', options[optionName])
+            }
+
+            return this;
         }
 
         getLogScope = function(){
@@ -282,7 +293,7 @@
                 isRedirected = false;
             }
             word = typeof word === 'undefined' ? '--- page' : word;
-            $.fn.uat.log.call(this, 'page', word, '<a href="' + url + '" target="_blank" style="color:#fff;">' + url + '</a>' + (redirectionDescription !== null ? ' [' + redirectionDescription + ']' : ''));
+            $.fn.uat.log.call(this, 'page', word, '<a href="' + url + '" target="_blank" style="color:#fff;">' + url + '</a>' + (typeof redirectionDescription !== 'undefined' && redirectionDescription !== null ? ' [' + redirectionDescription + ']' : ''));
             $('[data-current_page]').attr('href', url).text(url);
 
             tempLocation = url;
@@ -332,7 +343,16 @@
 
             test.page = tempLocation;
 
+            if (test.name === 'output') {
+                test.real_location = test.page;
+                receiveTestResult(test, {type: 'info', result: test.label});
+                testResultAwaited = false;
+                run();
+                return;
+            }
+
             // send test to remote page
+            testResultAwaited = true;
             $('#source_site_iframe').get(0).contentWindow.postMessage(JSON.stringify({command: 'runTest', test: test}), lastTestPage !== null ? lastTestPage : test.page);
         }
 
@@ -399,8 +419,12 @@
         }
 
         // public action
-        this.involveTestSet = function(testName, overwrittenParams){
+        this.involveTestSet = function(testName, overwrittenParams, label){
             if (testName !== null && typeof testSets[testName] !== 'undefined' && testSets[testName].commited === true && testSets[testName].tests.length > 0) {
+                if (typeof label !== 'undefined' && label !== null) {
+                    addIteration('step', 'output', [], label);
+                }
+
                 overwrittenParams = typeof overwrittenParams !== 'object' ? {} : overwrittenParams;
                 for (var t = 0; t < testSets[testName].tests.length; t++) {
                     var test = testSets[testName].tests[t],
@@ -408,7 +432,10 @@
 
                     if (test.label !== null && typeof overwrittenParams[test.label] !== 'undefined') {
                         for (var a = 0; a < overwrittenParams[test.label].length; a++) {
-                            args[a] = overwrittenParams[test.label][a];
+                            // console.log(testName + ' [' + a + '] => ' + overwrittenParams[test.label][a] + ' (type: ' + typeof overwrittenParams[test.label][a] + ')');
+                            if (typeof overwrittenParams[test.label][a] !== 'undefined') {
+                                args[a] = overwrittenParams[test.label][a];
+                            }
                         }
                     }
 
@@ -443,9 +470,9 @@
         }
 
         // public test
-        this.cookieValue = function(cookieName, cookieValue, expected, label){
+        this.cookieValueEqualsTo = function(cookieName, cookieValue, expected, label){
             expected = typeof expected !== 'boolean' ? true : expected;
-            return addUnit.call(this, 'cookieValue', [cookieName, cookieValue, expected], label);
+            return addUnit.call(this, 'cookieValueEqualsTo', [cookieName, cookieValue, expected], label);
         }
 
         // public test
@@ -478,6 +505,16 @@
             return addUnit.call(this, 'checkExpectedUrl', [url], label);
         }
 
+        // public test
+        this.valuesEqualToTheSet = function(selector, values, label){
+            return addUnit.call(this, 'valuesEqualToTheSet', [selector, values], label);
+        }
+
+        // public test
+        this.valuesSetNotContains = function(selector, values, label){
+            return addUnit.call(this, 'valuesSetNotContains', [selector, values], label);
+        }
+
         // public step
         this.findObj = function(selector, label){
             return addStep.call(this, 'findObj', [selector], label);
@@ -494,8 +531,8 @@
         }
 
         // public step
-        this.removeCookie = function(cookieName, label){
-            return addStep.call(this, 'removeCookie', [cookieName], label);
+        this.removeCookie = function(cookieName, cookieData, label){
+            return addStep.call(this, 'removeCookie', [cookieName, cookieData], label);
         }
 
         // public step
@@ -527,6 +564,11 @@
         }
 
         // public step
+        this.waitUntilRedirected = function(label){
+            return addStep.call(this, 'waitUntilRedirected', [], label);
+        }
+
+        // public step
         this.waitForUrl = function(url, label){
             expectedUrl = url;
             return addStep.call(this, 'waitForUrl', [url], label);
@@ -550,6 +592,16 @@
         // public step
         this.setAttribute = function(selector, name, value, label){
             return addStep.call(this, 'setAttribute', [selector, name, value], label);
+        }
+
+        // public step
+        this.extractOptionsValues = function(selector, label){
+            return addStep.call(this, 'extractOptionsValues', [selector], label);
+        }
+
+        // public step
+        this.cookieValue = function(cookieName, label){
+            return addStep.call(this, 'cookieValue', [cookieName], label);
         }
 
         // run all steps
@@ -576,8 +628,9 @@
             }
             if (!started) {
                 setCounter('success', 0);
-                setCounter('error', 0);
                 setCounter('warning', 0);
+                setCounter('error', 0);
+                setCounter('info', 0);
                 addCounter('iterations', 1);
             }
             if (parseInt(options.timeout) > 0) {
@@ -627,7 +680,10 @@
      * TEST: sourceEqualsTo
      */
     $.fn.uat.unit.sourceEqualsTo = function(selector, content, expected){
-        var result = $.trim($(selector).html()) === $.trim(content);
+        if (!$(selector).length) {
+            return {type: 'success', result: '[NO SELECTOR]'};
+        }
+        var result = $.trim($(selector).eq(0).html().replace(/>[\r\n\ ]+</gi, '><').replace(/[ ]+/gi, ' ')) === $.trim(content);
         return {type: result === expected ? 'success' : 'error', result: result};
     }
 
@@ -641,9 +697,9 @@
     }
 
     /**
-     * TEST: cookieValue
+     * TEST: cookieValueEqualsTo
      */
-    $.fn.uat.unit.cookieValue = function(cookieName, cookieValue, expected){
+    $.fn.uat.unit.cookieValueEqualsTo = function(cookieName, cookieValue, expected){
         var result = new RegExp('(^|; )' + cookieName.toString() + '=([^;$]*)', 'gi').exec(document.cookie),
             actualValue = result !== null ? result[2].toString() : '',
             status = expected === true ? actualValue === cookieValue.toString() : actualValue !== cookieValue.toString();
@@ -662,7 +718,7 @@
             ||
             (obj.css('visibility') !== 'undefined' && obj.css('visibility') === 'hidden')
         ) {
-            var result = expected === false;
+            var result = false;
             var visibilityPercentage = 0;
         } else {
             var objTop = obj.length ? obj.offset().top : 0,
@@ -733,6 +789,55 @@
     }
 
     /**
+     * TEST: valuesEqualToTheSet
+     */
+    $.fn.uat.unit.valuesEqualToTheSet = function(selector, values){
+        var expectedValues = typeof values === 'object' ? values.join(',') : values.toString();
+
+        if (!$(selector).length) {
+            return {type: expectedValues === '' ? 'success' : 'error', result: '[NO SELECTOR]'};
+        }
+
+        if ($(selector).get(0).tagName.toLowerCase() !== 'select') {
+            return {type: expectedValues === $(selector).get(0).value ? 'success' : 'error', result: $(selector).get(0).value};
+        }
+
+        var options = [];
+        $(selector).find('option').each(function(i, v){
+            if ($.trim(v.value) !== '') {
+                options.push(v.value);
+            }
+        });
+        options.sort();
+        var actualValues = options.join(',');
+
+        return {type: expectedValues === actualValues ? 'success' : 'error', result: actualValues};
+    }
+
+    /**
+     * TEST: valuesEqualToTheSet
+     */
+    $.fn.uat.unit.valuesSetNotContains = function(selector, values){
+        var restrictedValues = typeof values === 'object' ? values : values.split(',');
+
+        if (!$(selector).length) {
+            return {type: 'success', result: '[NO SELECTOR]'};
+        }
+
+        var hasUnexpectedValue = false,
+            unexpectedValues = [];
+
+        $(selector).find('option').each(function(i, v){
+            if ($.trim(v.value) !== '' && $.inArray(v.value, restrictedValues) !== -1) {
+                hasUnexpectedValue = true;
+                unexpectedValues.push(v.value);
+            }
+        });
+
+        return {type: hasUnexpectedValue === false ? 'success' : 'error', result: unexpectedValues.join(',')};
+    }
+
+    /**
      * TEST: checkExpectedUrl
      */
     $.fn.uat.unit.checkExpectedUrl = function(expectedUrl){
@@ -796,8 +901,8 @@
     /**
      * STEP: removeCookie
      */
-    $.fn.uat.unit.removeCookie = function(cookieName){
-        document.cookie = cookieName + '=; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+    $.fn.uat.unit.removeCookie = function(cookieName, cookieData){
+        document.cookie = cookieName + '=1;' + (typeof cookieData.domain !== 'undefined' ? (' domain=' + cookieData.domain + ';') : '') + (typeof cookieData.path !== 'undefined' ? (' path=' + cookieData.path + ';') : '') + ' expires=Thu, 01 Jan 1970 00:00:01 GMT;';
         return {type: 'success', result: true};
     }
 
@@ -821,20 +926,61 @@
      * STEP: setAttribute
      */
     $.fn.uat.unit.setAttribute = function(selector, name, value){
+        if (!$(selector).length) {
+            return {type: 'error', result: '[NO SELECTOR]'};
+        }
+
         $(selector).attr(name, value);
         return {type: $(selector).get(0).hasAttribute(name) ? 'success' : 'error', result: value.toString() === '' ? '[EMPTY VALUE]' : value};
+    }
+
+    /**
+     * STEP: extractOptionsValues
+     */
+    $.fn.uat.unit.extractOptionsValues = function(selector){
+        if (!$(selector).length) {
+            return {type: 'error', result: '[NO SELECTOR]'};
+        }
+
+        if ($(selector).get(0).tagName.toLowerCase() !== 'select') {
+            return {type: 'error', result: '[IS NOT A SELECT]'};
+        }
+
+        var options = [];
+        $(selector).find('option').each(function(i, v){
+            options.push(v.value);
+        });
+
+        return {type: 'info', result: options.join(',')};
+    }
+
+    /**
+     * TEST: cookieValue
+     */
+    $.fn.uat.unit.cookieValue = function(cookieName){
+        var result = new RegExp('(^|; )' + cookieName.toString() + '=([^;$]*)', 'gi').exec(document.cookie),
+            actualValue = result !== null ? result[2].toString() : '';
+        return {type: 'info', result: actualValue !== '' ? actualValue : '[NO VALUE]'};
     }
 
     /**
      * STEP: fillIn
      */
     $.fn.uat.unit.fillIn = function(selector, value){
-        var obj = $(selector),
-            tagName = obj.get(0).tagName.toLowerCase(),
+        var obj = $(selector);
+        if (!obj.length) {
+            return {type: 'success', result: true};
+        }
+
+        var tagName = obj.get(0).tagName.toLowerCase(),
             objType = obj.attr('type') || null,
             triggerType = (tagName === 'input' && $.inArray(objType, ['text', 'password', 'email', 'tel']) !== -1) || tagName === 'textarea' ? 'keyup' : 'change';
         obj.val(value).trigger(triggerType);
-        return {type: 'success', result: true};
+
+        // TODO: add 'strict' option for plugin (bool) and check final value with expected only in strict mode
+        var result = true; // obj.val() === value;
+
+        return {type: result ? 'success' : 'error', result: result ? true : '[CANNOT SET VALUE]'};
     }
 
     /**
@@ -858,6 +1004,13 @@
      */
     $.fn.uat.unit.waitForUrl = function(url){
         return {type: 'success', result: true};
+    }
+
+    /**
+     * STEP: waitUntilRedirected
+     */
+    $.fn.uat.unit.waitUntilRedirected = function(){
+        return {type: 'success', result: true, action: 'redirect'};
     }
 
     /**
@@ -1083,6 +1236,12 @@
                     .css($.extend({}, labelCss, {background: 'pink', color: '#cc0000'}))
                     .html('<b>0</b>')
                     .attr('title', 'Click to see only failed tests')
+                    .appendTo(statsDiv);
+
+                var statsFailedDiv = $('<a data-tests="info">')
+                    .css($.extend({}, labelCss, {background: 'blue', color: '#fff'}))
+                    .html('<b>0</b>')
+                    .attr('title', 'Click to see only info tests')
                     .appendTo(statsDiv);
 
                 var statsIterationsDiv = $('<div data-tests="iterations">')
@@ -1348,9 +1507,9 @@
             var id = 'uat_result_item_' + Math.random() * 100000;
             var resultBlock = $(selectors.result);
             attrs = typeof attrs !== 'object' ? {} : attrs;
-            $('<div>')
-                .attr($.extend({}, {style: style, id: id}, attrs))
-                .html(key + ($.trim(value.toString()) !== '' ? ': ' + value : ''))
+            var div = $('<div>')
+                .attr($.extend({}, {style: style, id: id}, attrs));
+            div.html(key + (typeof value !== 'undefined' && value !== null && $.trim(value.toString()) !== '' ? (': ' + (typeof attrs.class !== 'undefined' ? '<span style="background:'+div.css('color')+';color:#fff;padding:0 2px;border-radius:4px;">' + value + '</span>' : value)) : ''))
                 .appendTo(resultBlock);
             resultBlock.animate({scrollTop: resultBlock.prop("scrollHeight")}, 0);
         }
